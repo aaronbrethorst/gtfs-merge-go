@@ -2124,5 +2124,9 @@ This section tracks completed milestones with feedback and notes.
 - Also fixed pre-existing linter errors in compare/compare.go (errcheck warnings)
 - TDD approach: wrote 21 validation tests first, then implemented
 - All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
-- Java integration tests pass: entity counts match between Go and Java outputs
-- Total: 142 tests passing with race detector
+- **Java Integration Tests for Validation** (4 new tests in `compare/compare_test.go`):
+  - `TestValidation_GoMergedFeedPassesValidation` - Go merged output is valid GTFS
+  - `TestValidation_JavaMergedFeedPassesValidation` - Java merged output passes our validation
+  - `TestValidation_BothMergedFeedsValidate` - Compare validation results for both outputs
+  - `TestValidation_MergeWithOverlapPassesValidation` - Overlapping ID merge produces valid output
+- Total: 142 tests (without Java tag), 155 tests (with Java tag)
