@@ -274,3 +274,174 @@ func TestCalendarDatesDuplicateDetection(t *testing.T) {
 		t.Errorf("Expected 1 calendar date (duplicate skipped), got %d", len(dates))
 	}
 }
+
+// Fuzzy detection tests for Milestone 10
+
+func TestCalendarMergeFuzzyByDateOverlap(t *testing.T) {
+	// Given: calendars with different IDs but overlapping date ranges
+	source := gtfs.NewFeed()
+	source.Calendars[gtfs.ServiceID("svc_a")] = &gtfs.Calendar{
+		ServiceID: "svc_a",
+		Monday:    true,
+		Tuesday:   true,
+		Wednesday: true,
+		Thursday:  true,
+		Friday:    true,
+		StartDate: "20240101",
+		EndDate:   "20241231",
+	}
+
+	target := gtfs.NewFeed()
+	target.Calendars[gtfs.ServiceID("svc_b")] = &gtfs.Calendar{
+		ServiceID: "svc_b",
+		Monday:    true,
+		Tuesday:   true,
+		Wednesday: true,
+		Thursday:  true,
+		Friday:    true,
+		StartDate: "20240101", // Same date range
+		EndDate:   "20241231",
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewCalendarMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: detected as duplicates (100% date overlap)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should only have one calendar (the original target)
+	if len(target.Calendars) != 1 {
+		t.Errorf("Expected 1 calendar (fuzzy duplicate detected), got %d", len(target.Calendars))
+	}
+
+	// Source ID should map to target ID
+	if ctx.ServiceIDMapping["svc_a"] != "svc_b" {
+		t.Errorf("Expected ServiceIDMapping[svc_a] = svc_b, got %q", ctx.ServiceIDMapping["svc_a"])
+	}
+}
+
+func TestCalendarMergeFuzzyPartialOverlap(t *testing.T) {
+	// Given: calendars with different IDs and partially overlapping date ranges
+	source := gtfs.NewFeed()
+	source.Calendars[gtfs.ServiceID("svc_a")] = &gtfs.Calendar{
+		ServiceID: "svc_a",
+		Monday:    true,
+		StartDate: "20240601", // Starts mid-year
+		EndDate:   "20241231",
+	}
+
+	target := gtfs.NewFeed()
+	target.Calendars[gtfs.ServiceID("svc_b")] = &gtfs.Calendar{
+		ServiceID: "svc_b",
+		Monday:    true,
+		StartDate: "20240101",
+		EndDate:   "20240930", // Ends before source
+	}
+	// Overlap is July-Sept (4 months), which is significant
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewCalendarMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: should be detected as duplicates (significant overlap)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Partial overlap should be detected as duplicate
+	if len(target.Calendars) != 1 {
+		t.Errorf("Expected 1 calendar (fuzzy duplicate detected), got %d", len(target.Calendars))
+	}
+
+	if ctx.ServiceIDMapping["svc_a"] != "svc_b" {
+		t.Errorf("Expected ServiceIDMapping[svc_a] = svc_b, got %q", ctx.ServiceIDMapping["svc_a"])
+	}
+}
+
+func TestCalendarMergeFuzzyNoOverlap(t *testing.T) {
+	// Given: calendars with non-overlapping date ranges
+	source := gtfs.NewFeed()
+	source.Calendars[gtfs.ServiceID("svc_a")] = &gtfs.Calendar{
+		ServiceID: "svc_a",
+		Monday:    true,
+		StartDate: "20250101", // Next year
+		EndDate:   "20251231",
+	}
+
+	target := gtfs.NewFeed()
+	target.Calendars[gtfs.ServiceID("svc_b")] = &gtfs.Calendar{
+		ServiceID: "svc_b",
+		Monday:    true,
+		StartDate: "20240101", // This year
+		EndDate:   "20241231",
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewCalendarMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: NOT detected as duplicates (no date overlap)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should have both calendars (no fuzzy match)
+	if len(target.Calendars) != 2 {
+		t.Errorf("Expected 2 calendars (no fuzzy match - no overlap), got %d", len(target.Calendars))
+	}
+}
+
+func TestCalendarMergeFuzzyWithPrefix(t *testing.T) {
+	// Given: calendars with no fuzzy match and ID collision
+	source := gtfs.NewFeed()
+	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{
+		ServiceID: "svc1",
+		Monday:    true,
+		StartDate: "20250101",
+		EndDate:   "20251231",
+	}
+
+	target := gtfs.NewFeed()
+	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{
+		ServiceID: "svc1",
+		Monday:    true,
+		StartDate: "20240101", // Different year - no overlap
+		EndDate:   "20241231",
+	}
+
+	ctx := NewMergeContext(source, target, "a_")
+	strategy := NewCalendarMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy and collision
+	err := strategy.Merge(ctx)
+
+	// Then: no fuzzy match, but collision should add prefix
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.Calendars) != 2 {
+		t.Errorf("Expected 2 calendars, got %d", len(target.Calendars))
+	}
+
+	if _, ok := target.Calendars["a_svc1"]; !ok {
+		t.Error("Expected a_svc1 to be in target (prefixed due to collision)")
+	}
+
+	if ctx.ServiceIDMapping["svc1"] != "a_svc1" {
+		t.Errorf("Expected ServiceIDMapping[svc1] = a_svc1, got %q", ctx.ServiceIDMapping["svc1"])
+	}
+}

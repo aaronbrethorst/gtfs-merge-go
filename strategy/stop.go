@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 )
@@ -10,12 +11,15 @@ import (
 // StopMergeStrategy handles merging of stops between feeds
 type StopMergeStrategy struct {
 	BaseStrategy
+	// FuzzyThreshold is the minimum score for a fuzzy match (default 0.5)
+	FuzzyThreshold float64
 }
 
 // NewStopMergeStrategy creates a new StopMergeStrategy
 func NewStopMergeStrategy() *StopMergeStrategy {
 	return &StopMergeStrategy{
-		BaseStrategy: NewBaseStrategy("stop"),
+		BaseStrategy:   NewBaseStrategy("stop"),
+		FuzzyThreshold: 0.5,
 	}
 }
 
@@ -33,6 +37,23 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 					log.Printf("WARNING: Duplicate stop detected with ID %q (keeping existing)", stop.ID)
 				} else if s.DuplicateLogging == LogError {
 					return fmt.Errorf("duplicate stop detected with ID %q", stop.ID)
+				}
+
+				// Skip adding this stop - use the existing one
+				continue
+			}
+		}
+
+		// Check for fuzzy duplicates
+		if s.DuplicateDetection == DetectionFuzzy {
+			if matchID := s.findFuzzyMatch(ctx, stop); matchID != "" {
+				// Fuzzy duplicate detected - map source ID to existing target ID
+				ctx.StopIDMapping[stop.ID] = matchID
+
+				if s.DuplicateLogging == LogWarning {
+					log.Printf("WARNING: Fuzzy duplicate stop detected: %q matches %q (keeping existing)", stop.ID, matchID)
+				} else if s.DuplicateLogging == LogError {
+					return fmt.Errorf("fuzzy duplicate stop detected: %q matches %q", stop.ID, matchID)
 				}
 
 				// Skip adding this stop - use the existing one
@@ -80,4 +101,78 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 	}
 
 	return nil
+}
+
+// findFuzzyMatch searches for a fuzzy duplicate in the target stops.
+// Returns the ID of the matching stop if found, or empty string if no match.
+// Uses name matching combined with geographic distance (multiplicative scoring).
+func (s *StopMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Stop) gtfs.StopID {
+	var bestMatch gtfs.StopID
+	var bestScore float64
+
+	for _, target := range ctx.Target.Stops {
+		// Calculate combined score: name match * distance score
+		nameScore := stopNameScore(source, target)
+		distScore := stopDistanceScore(source, target)
+		score := nameScore * distScore
+
+		if score >= s.FuzzyThreshold && score > bestScore {
+			bestScore = score
+			bestMatch = target.ID
+		}
+	}
+
+	return bestMatch
+}
+
+// stopNameScore returns 1.0 if names match, 0.0 otherwise.
+func stopNameScore(source, target *gtfs.Stop) float64 {
+	if source.Name == target.Name {
+		return 1.0
+	}
+	return 0.0
+}
+
+// stopDistanceScore returns a score based on geographic distance.
+// Uses tiered thresholds: <50m → 1.0, <100m → 0.75, <500m → 0.5, >=500m → 0.0
+func stopDistanceScore(source, target *gtfs.Stop) float64 {
+	distanceKm := haversineDistance(source.Lat, source.Lon, target.Lat, target.Lon)
+	distanceM := distanceKm * 1000
+
+	switch {
+	case distanceM < 50:
+		return 1.0
+	case distanceM < 100:
+		return 0.75
+	case distanceM < 500:
+		return 0.5
+	default:
+		return 0.0
+	}
+}
+
+// earthRadiusKm is the mean radius of the Earth in kilometers
+const earthRadiusKm = 6371.0
+
+// haversineDistance calculates the great-circle distance between two points
+// on the Earth's surface using the Haversine formula.
+// Returns distance in kilometers.
+func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
+	// Convert degrees to radians
+	lat1Rad := lat1 * math.Pi / 180
+	lat2Rad := lat2 * math.Pi / 180
+	lon1Rad := lon1 * math.Pi / 180
+	lon2Rad := lon2 * math.Pi / 180
+
+	// Haversine formula
+	dLat := lat2Rad - lat1Rad
+	dLon := lon2Rad - lon1Rad
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1Rad)*math.Cos(lat2Rad)*
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return earthRadiusKm * c
 }

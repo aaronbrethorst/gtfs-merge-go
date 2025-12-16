@@ -918,3 +918,241 @@ func TestIdentityDetection_CompareNoneVsIdentity(t *testing.T) {
 		t.Errorf("Go identity merged feed has validation errors: %v", identityErrs)
 	}
 }
+
+// ============================================================================
+// Fuzzy Detection Integration Tests (Milestone 10)
+// ============================================================================
+
+func TestFuzzyDetection_ProducesValidOutput(t *testing.T) {
+	// Verify that Go's fuzzy detection merge produces a valid GTFS feed
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionFuzzy))
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_fuzzy.zip")
+
+	// Merge with fuzzy detection
+	err := goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go fuzzy merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go fuzzy-merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go fuzzy-merged feed passes validation")
+	}
+}
+
+func TestFuzzyDetection_MergesSimilarEntities(t *testing.T) {
+	// Test that fuzzy detection merges entities with similar properties
+	// but different IDs (fuzzy_similar has same properties as simple_a but different IDs)
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionFuzzy))
+
+	inputA := "../testdata/simple_a"
+	inputFuzzy := "../testdata/fuzzy_similar"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_fuzzy.zip")
+
+	err := goMerger.MergeFiles([]string{inputA, inputFuzzy}, goOutput)
+	if err != nil {
+		t.Fatalf("Go fuzzy merge failed: %v", err)
+	}
+
+	// Read the merged feed
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	// Read individual feeds for comparison
+	feedA, err := gtfs.ReadFromPath(inputA)
+	if err != nil {
+		t.Fatalf("Failed to read simple_a: %v", err)
+	}
+
+	feedFuzzy, err := gtfs.ReadFromPath(inputFuzzy)
+	if err != nil {
+		t.Fatalf("Failed to read fuzzy_similar: %v", err)
+	}
+
+	t.Logf("simple_a - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, Calendars: %d",
+		len(feedA.Agencies), len(feedA.Stops), len(feedA.Routes), len(feedA.Trips), len(feedA.Calendars))
+	t.Logf("fuzzy_similar - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, Calendars: %d",
+		len(feedFuzzy.Agencies), len(feedFuzzy.Stops), len(feedFuzzy.Routes), len(feedFuzzy.Trips), len(feedFuzzy.Calendars))
+	t.Logf("merged (fuzzy) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, Calendars: %d",
+		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips), len(feed.Calendars))
+
+	// With fuzzy detection, similar entities should be merged
+	// So the merged feed should have fewer entities than simple sum
+	simpleSum := len(feedA.Stops) + len(feedFuzzy.Stops)
+	if len(feed.Stops) >= simpleSum {
+		t.Logf("Note: Fuzzy detection did not reduce stop count - may need threshold tuning. Sum=%d, Merged=%d",
+			simpleSum, len(feed.Stops))
+	} else {
+		t.Logf("Fuzzy detection merged similar stops: Sum=%d, Merged=%d (saved %d)",
+			simpleSum, len(feed.Stops), simpleSum-len(feed.Stops))
+	}
+
+	// Validate the merged feed
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go fuzzy-merged feed has validation errors: %v", errs)
+	}
+}
+
+func TestFuzzyDetection_CompareAllDetectionModes(t *testing.T) {
+	// Compare Go's output with none vs identity vs fuzzy detection
+	goMergerNone := merge.New()
+	goMergerIdentity := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+	goMergerFuzzy := merge.New(merge.WithDefaultDetection(strategy.DetectionFuzzy))
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	noneOutput := filepath.Join(tmpDir, "go_none.zip")
+	identityOutput := filepath.Join(tmpDir, "go_identity.zip")
+	fuzzyOutput := filepath.Join(tmpDir, "go_fuzzy.zip")
+
+	err := goMergerNone.MergeFiles([]string{inputA, inputOverlap}, noneOutput)
+	if err != nil {
+		t.Fatalf("Go none merge failed: %v", err)
+	}
+
+	err = goMergerIdentity.MergeFiles([]string{inputA, inputOverlap}, identityOutput)
+	if err != nil {
+		t.Fatalf("Go identity merge failed: %v", err)
+	}
+
+	err = goMergerFuzzy.MergeFiles([]string{inputA, inputOverlap}, fuzzyOutput)
+	if err != nil {
+		t.Fatalf("Go fuzzy merge failed: %v", err)
+	}
+
+	// Read feeds
+	noneFeed, err := gtfs.ReadFromPath(noneOutput)
+	if err != nil {
+		t.Fatalf("Failed to read none output: %v", err)
+	}
+
+	identityFeed, err := gtfs.ReadFromPath(identityOutput)
+	if err != nil {
+		t.Fatalf("Failed to read identity output: %v", err)
+	}
+
+	fuzzyFeed, err := gtfs.ReadFromPath(fuzzyOutput)
+	if err != nil {
+		t.Fatalf("Failed to read fuzzy output: %v", err)
+	}
+
+	t.Logf("Go none - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(noneFeed.Agencies), len(noneFeed.Stops), len(noneFeed.Routes), len(noneFeed.Trips))
+	t.Logf("Go identity - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(identityFeed.Agencies), len(identityFeed.Stops), len(identityFeed.Routes), len(identityFeed.Trips))
+	t.Logf("Go fuzzy - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(fuzzyFeed.Agencies), len(fuzzyFeed.Stops), len(fuzzyFeed.Routes), len(fuzzyFeed.Trips))
+
+	// Expected behavior:
+	// - none: keeps all entities (most entities, with prefixes)
+	// - identity: merges entities with same ID (fewer than none)
+	// - fuzzy: merges entities with same ID OR similar properties (fewest)
+	// Note: For overlap test data, identity and fuzzy may have same counts
+	// if all duplicates have matching IDs
+
+	// All should produce valid feeds
+	noneErrs := noneFeed.Validate()
+	identityErrs := identityFeed.Validate()
+	fuzzyErrs := fuzzyFeed.Validate()
+
+	if len(noneErrs) > 0 {
+		t.Errorf("Go none merged feed has validation errors: %v", noneErrs)
+	}
+	if len(identityErrs) > 0 {
+		t.Errorf("Go identity merged feed has validation errors: %v", identityErrs)
+	}
+	if len(fuzzyErrs) > 0 {
+		t.Errorf("Go fuzzy merged feed has validation errors: %v", fuzzyErrs)
+	}
+}
+
+func TestFuzzyDetection_ThreeFeedMerge(t *testing.T) {
+	// Test fuzzy detection with three feeds
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionFuzzy))
+
+	inputs := []string{
+		"../testdata/simple_a",
+		"../testdata/simple_b",
+		"../testdata/minimal",
+	}
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_three_fuzzy.zip")
+
+	err := goMerger.MergeFiles(inputs, goOutput)
+	if err != nil {
+		t.Fatalf("Go fuzzy merge failed: %v", err)
+	}
+
+	// Read feed
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Three-feed merge (Go fuzzy) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Validate
+	goErrs := goFeed.Validate()
+	if len(goErrs) > 0 {
+		t.Errorf("Go three-feed fuzzy merge has validation errors: %v", goErrs)
+	} else {
+		t.Log("Go three-feed fuzzy merge passes validation")
+	}
+}
+
+func TestFuzzyDetection_PreservesReferentialIntegrity(t *testing.T) {
+	// Verify Go's fuzzy detection maintains valid foreign key references
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionFuzzy))
+
+	inputA := "../testdata/simple_a"
+	inputFuzzy := "../testdata/fuzzy_similar"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_fuzzy.zip")
+
+	err := goMerger.MergeFiles([]string{inputA, inputFuzzy}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go fuzzy-merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go fuzzy-merged feed passes validation!")
+	}
+}

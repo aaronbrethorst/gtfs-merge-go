@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type
+fuzzy_stop1,Downtown Station,40.7128,-74.0060,1
+fuzzy_stop2,Midtown Stop,40.7580,-73.9855,0
+fuzzy_stop3,Uptown Terminal,40.7831,-73.9712,1

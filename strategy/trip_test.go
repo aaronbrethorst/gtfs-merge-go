@@ -253,3 +253,298 @@ func TestTripMergeErrorOnDuplicate(t *testing.T) {
 		t.Fatal("Expected error when duplicate detected with LogError")
 	}
 }
+
+// Fuzzy detection tests for Milestone 10
+
+func TestTripMergeFuzzyByStops(t *testing.T) {
+	// Given: trips with different IDs but same route, service, and all stops in common
+	source := gtfs.NewFeed()
+	source.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	source.Trips[gtfs.TripID("trip_a")] = &gtfs.Trip{
+		ID:        "trip_a",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+		Headsign:  "Downtown",
+	}
+	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{ID: "stop1", Name: "Stop 1"}
+	source.Stops[gtfs.StopID("stop2")] = &gtfs.Stop{ID: "stop2", Name: "Stop 2"}
+	source.StopTimes = append(source.StopTimes,
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stop1", StopSequence: 1, ArrivalTime: "08:00:00", DepartureTime: "08:00:00"},
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stop2", StopSequence: 2, ArrivalTime: "08:30:00", DepartureTime: "08:30:00"},
+	)
+
+	target := gtfs.NewFeed()
+	target.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	target.Trips[gtfs.TripID("trip_b")] = &gtfs.Trip{
+		ID:        "trip_b",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+		Headsign:  "Downtown",
+	}
+	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{ID: "stop1", Name: "Stop 1"}
+	target.Stops[gtfs.StopID("stop2")] = &gtfs.Stop{ID: "stop2", Name: "Stop 2"}
+	// Same stop times as source for perfect overlap
+	target.StopTimes = append(target.StopTimes,
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stop1", StopSequence: 1, ArrivalTime: "08:00:00", DepartureTime: "08:00:00"},
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stop2", StopSequence: 2, ArrivalTime: "08:30:00", DepartureTime: "08:30:00"},
+	)
+
+	ctx := NewMergeContext(source, target, "")
+	ctx.RouteIDMapping["route1"] = "route1"
+	ctx.ServiceIDMapping["svc1"] = "svc1"
+	ctx.StopIDMapping["stop1"] = "stop1"
+	ctx.StopIDMapping["stop2"] = "stop2"
+
+	strategy := NewTripMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: detected as duplicates
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should only have one trip (the original target trip)
+	if len(target.Trips) != 1 {
+		t.Errorf("Expected 1 trip (fuzzy duplicate detected), got %d", len(target.Trips))
+	}
+
+	// Source ID should map to target ID
+	if ctx.TripIDMapping["trip_a"] != "trip_b" {
+		t.Errorf("Expected TripIDMapping[trip_a] = trip_b, got %q", ctx.TripIDMapping["trip_a"])
+	}
+}
+
+func TestTripMergeFuzzyBySchedule(t *testing.T) {
+	// Given: trips with overlapping schedule windows
+	source := gtfs.NewFeed()
+	source.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	source.Trips[gtfs.TripID("trip_a")] = &gtfs.Trip{
+		ID:        "trip_a",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+		Headsign:  "Express",
+	}
+	source.Stops[gtfs.StopID("s1")] = &gtfs.Stop{ID: "s1", Name: "First"}
+	source.Stops[gtfs.StopID("s2")] = &gtfs.Stop{ID: "s2", Name: "Last"}
+	source.StopTimes = append(source.StopTimes,
+		&gtfs.StopTime{TripID: "trip_a", StopID: "s1", StopSequence: 1, ArrivalTime: "09:00:00", DepartureTime: "09:00:00"},
+		&gtfs.StopTime{TripID: "trip_a", StopID: "s2", StopSequence: 2, ArrivalTime: "09:30:00", DepartureTime: "09:30:00"},
+	)
+
+	target := gtfs.NewFeed()
+	target.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	target.Trips[gtfs.TripID("trip_b")] = &gtfs.Trip{
+		ID:        "trip_b",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+		Headsign:  "Express",
+	}
+	target.Stops[gtfs.StopID("s1")] = &gtfs.Stop{ID: "s1", Name: "First"}
+	target.Stops[gtfs.StopID("s2")] = &gtfs.Stop{ID: "s2", Name: "Last"}
+	// Same time window for perfect schedule overlap
+	target.StopTimes = append(target.StopTimes,
+		&gtfs.StopTime{TripID: "trip_b", StopID: "s1", StopSequence: 1, ArrivalTime: "09:00:00", DepartureTime: "09:00:00"},
+		&gtfs.StopTime{TripID: "trip_b", StopID: "s2", StopSequence: 2, ArrivalTime: "09:30:00", DepartureTime: "09:30:00"},
+	)
+
+	ctx := NewMergeContext(source, target, "")
+	ctx.RouteIDMapping["route1"] = "route1"
+	ctx.ServiceIDMapping["svc1"] = "svc1"
+	ctx.StopIDMapping["s1"] = "s1"
+	ctx.StopIDMapping["s2"] = "s2"
+
+	strategy := NewTripMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: detected as duplicates (same route, service, stops, schedule)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.Trips) != 1 {
+		t.Errorf("Expected 1 trip (fuzzy duplicate detected), got %d", len(target.Trips))
+	}
+
+	if ctx.TripIDMapping["trip_a"] != "trip_b" {
+		t.Errorf("Expected TripIDMapping[trip_a] = trip_b, got %q", ctx.TripIDMapping["trip_a"])
+	}
+}
+
+func TestTripMergeFuzzyNoMatch_DifferentRoute(t *testing.T) {
+	// Given: trips with different routes - should not fuzzy match
+	source := gtfs.NewFeed()
+	source.Routes[gtfs.RouteID("route_src")] = &gtfs.Route{ID: "route_src", ShortName: "1"}
+	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	source.Trips[gtfs.TripID("trip_a")] = &gtfs.Trip{
+		ID:        "trip_a",
+		RouteID:   "route_src",
+		ServiceID: "svc1",
+	}
+	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{ID: "stop1", Name: "Stop"}
+	source.StopTimes = append(source.StopTimes,
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stop1", StopSequence: 1, ArrivalTime: "08:00:00", DepartureTime: "08:00:00"},
+	)
+
+	target := gtfs.NewFeed()
+	target.Routes[gtfs.RouteID("route_tgt")] = &gtfs.Route{ID: "route_tgt", ShortName: "2"}
+	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	target.Trips[gtfs.TripID("trip_b")] = &gtfs.Trip{
+		ID:        "trip_b",
+		RouteID:   "route_tgt", // Different route
+		ServiceID: "svc1",
+	}
+	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{ID: "stop1", Name: "Stop"}
+	target.StopTimes = append(target.StopTimes,
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stop1", StopSequence: 1, ArrivalTime: "08:00:00", DepartureTime: "08:00:00"},
+	)
+
+	ctx := NewMergeContext(source, target, "")
+	// Routes map to different targets (different routes)
+	ctx.RouteIDMapping["route_src"] = "route_src"
+	ctx.ServiceIDMapping["svc1"] = "svc1"
+	ctx.StopIDMapping["stop1"] = "stop1"
+
+	strategy := NewTripMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: NOT detected as duplicates (different routes)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.Trips) != 2 {
+		t.Errorf("Expected 2 trips (no fuzzy match - different routes), got %d", len(target.Trips))
+	}
+}
+
+func TestTripMergeFuzzyNoMatch_NoScheduleOverlap(t *testing.T) {
+	// Given: trips with same route/service but completely different schedules
+	source := gtfs.NewFeed()
+	source.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	source.Trips[gtfs.TripID("trip_a")] = &gtfs.Trip{
+		ID:        "trip_a",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+	}
+	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{ID: "stop1", Name: "Stop 1"}
+	source.Stops[gtfs.StopID("stop2")] = &gtfs.Stop{ID: "stop2", Name: "Stop 2"}
+	// Morning trip
+	source.StopTimes = append(source.StopTimes,
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stop1", StopSequence: 1, ArrivalTime: "06:00:00", DepartureTime: "06:00:00"},
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stop2", StopSequence: 2, ArrivalTime: "06:30:00", DepartureTime: "06:30:00"},
+	)
+
+	target := gtfs.NewFeed()
+	target.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	target.Trips[gtfs.TripID("trip_b")] = &gtfs.Trip{
+		ID:        "trip_b",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+	}
+	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{ID: "stop1", Name: "Stop 1"}
+	target.Stops[gtfs.StopID("stop2")] = &gtfs.Stop{ID: "stop2", Name: "Stop 2"}
+	// Evening trip - no schedule overlap with source
+	target.StopTimes = append(target.StopTimes,
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stop1", StopSequence: 1, ArrivalTime: "18:00:00", DepartureTime: "18:00:00"},
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stop2", StopSequence: 2, ArrivalTime: "18:30:00", DepartureTime: "18:30:00"},
+	)
+
+	ctx := NewMergeContext(source, target, "")
+	ctx.RouteIDMapping["route1"] = "route1"
+	ctx.ServiceIDMapping["svc1"] = "svc1"
+	ctx.StopIDMapping["stop1"] = "stop1"
+	ctx.StopIDMapping["stop2"] = "stop2"
+
+	strategy := NewTripMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: NOT detected as duplicates (no schedule overlap)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.Trips) != 2 {
+		t.Errorf("Expected 2 trips (no fuzzy match - no schedule overlap), got %d", len(target.Trips))
+	}
+}
+
+func TestTripMergeFuzzyRejectsOnStopTimeDiff(t *testing.T) {
+	// Given: trips that would match on route/service/stops but have different stop sequences
+	source := gtfs.NewFeed()
+	source.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	source.Trips[gtfs.TripID("trip_a")] = &gtfs.Trip{
+		ID:        "trip_a",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+	}
+	source.Stops[gtfs.StopID("stopA")] = &gtfs.Stop{ID: "stopA", Name: "Stop A"}
+	source.Stops[gtfs.StopID("stopB")] = &gtfs.Stop{ID: "stopB", Name: "Stop B"}
+	source.Stops[gtfs.StopID("stopC")] = &gtfs.Stop{ID: "stopC", Name: "Stop C"}
+	source.StopTimes = append(source.StopTimes,
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stopA", StopSequence: 1, ArrivalTime: "08:00:00", DepartureTime: "08:00:00"},
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stopB", StopSequence: 2, ArrivalTime: "08:10:00", DepartureTime: "08:10:00"},
+		&gtfs.StopTime{TripID: "trip_a", StopID: "stopC", StopSequence: 3, ArrivalTime: "08:20:00", DepartureTime: "08:20:00"},
+	)
+
+	target := gtfs.NewFeed()
+	target.Routes[gtfs.RouteID("route1")] = &gtfs.Route{ID: "route1", ShortName: "1"}
+	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	target.Trips[gtfs.TripID("trip_b")] = &gtfs.Trip{
+		ID:        "trip_b",
+		RouteID:   "route1",
+		ServiceID: "svc1",
+	}
+	target.Stops[gtfs.StopID("stopA")] = &gtfs.Stop{ID: "stopA", Name: "Stop A"}
+	target.Stops[gtfs.StopID("stopB")] = &gtfs.Stop{ID: "stopB", Name: "Stop B"}
+	// Different stop at sequence 3 (stopD instead of stopC)
+	target.Stops[gtfs.StopID("stopD")] = &gtfs.Stop{ID: "stopD", Name: "Stop D"}
+	target.StopTimes = append(target.StopTimes,
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stopA", StopSequence: 1, ArrivalTime: "08:00:00", DepartureTime: "08:00:00"},
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stopB", StopSequence: 2, ArrivalTime: "08:10:00", DepartureTime: "08:10:00"},
+		&gtfs.StopTime{TripID: "trip_b", StopID: "stopD", StopSequence: 3, ArrivalTime: "08:20:00", DepartureTime: "08:20:00"}, // Different stop!
+	)
+
+	ctx := NewMergeContext(source, target, "")
+	ctx.RouteIDMapping["route1"] = "route1"
+	ctx.ServiceIDMapping["svc1"] = "svc1"
+	ctx.StopIDMapping["stopA"] = "stopA"
+	ctx.StopIDMapping["stopB"] = "stopB"
+	ctx.StopIDMapping["stopC"] = "stopC"
+	ctx.StopIDMapping["stopD"] = "stopD"
+
+	strategy := NewTripMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: NOT detected as duplicates due to different stop at same sequence
+	// (validation should reject when stops differ at same sequence position)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should have 2 trips (no fuzzy match due to stop sequence difference)
+	if len(target.Trips) != 2 {
+		t.Errorf("Expected 2 trips (no fuzzy match - different stops), got %d", len(target.Trips))
+	}
+}
