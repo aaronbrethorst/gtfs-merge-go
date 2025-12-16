@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
+	"github.com/aaronbrethorst/gtfs-merge-go/strategy"
 )
 
 func TestMergeTwoSimpleFeeds(t *testing.T) {
@@ -604,6 +605,225 @@ func TestMergeWithOverlapTestData(t *testing.T) {
 	totalAgencies := len(feedA.Agencies) + len(feedOverlap.Agencies)
 	if len(merged.Agencies) != totalAgencies {
 		t.Errorf("expected %d agencies, got %d", totalAgencies, len(merged.Agencies))
+	}
+
+	// Verify referential integrity is maintained
+	for _, route := range merged.Routes {
+		if route.AgencyID != "" {
+			if _, ok := merged.Agencies[route.AgencyID]; !ok {
+				t.Errorf("route %s references invalid agency %s", route.ID, route.AgencyID)
+			}
+		}
+	}
+
+	for _, trip := range merged.Trips {
+		if _, ok := merged.Routes[trip.RouteID]; !ok {
+			t.Errorf("trip %s references invalid route %s", trip.ID, trip.RouteID)
+		}
+	}
+
+	for _, st := range merged.StopTimes {
+		if _, ok := merged.Trips[st.TripID]; !ok {
+			t.Errorf("stop_time references invalid trip %s", st.TripID)
+		}
+		if _, ok := merged.Stops[st.StopID]; !ok {
+			t.Errorf("stop_time references invalid stop %s", st.StopID)
+		}
+	}
+}
+
+// Tests for Milestone 8 - Identity-Based Duplicate Detection
+
+func TestMergeWithIdentityDetection(t *testing.T) {
+	// Given: feeds with same IDs
+	feedA := gtfs.NewFeed()
+	feedA.Agencies["agency1"] = &gtfs.Agency{ID: "agency1", Name: "Agency A", URL: "http://a.com", Timezone: "UTC"}
+	feedA.Stops["stop1"] = &gtfs.Stop{ID: "stop1", Name: "Stop A", Lat: 47.6, Lon: -122.3}
+
+	feedB := gtfs.NewFeed()
+	feedB.Agencies["agency1"] = &gtfs.Agency{ID: "agency1", Name: "Agency B", URL: "http://b.com", Timezone: "UTC"}
+	feedB.Stops["stop1"] = &gtfs.Stop{ID: "stop1", Name: "Stop B", Lat: 40.7, Lon: -74.0}
+
+	// When: merged with DetectionIdentity
+	merger := New(WithDefaultDetection(strategy.DetectionIdentity))
+	merged, err := merger.MergeFeeds([]*gtfs.Feed{feedA, feedB})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	// Then: duplicates are detected and only one copy is kept
+	// Feed B is processed first (no prefix), Feed A is processed second
+	// Since identity detection is on, when Feed A is processed, it detects the duplicate
+	// and maps to the existing entity instead of creating a prefixed one
+	if len(merged.Agencies) != 1 {
+		t.Errorf("expected 1 agency with identity detection, got %d", len(merged.Agencies))
+	}
+	if len(merged.Stops) != 1 {
+		t.Errorf("expected 1 stop with identity detection, got %d", len(merged.Stops))
+	}
+
+	// The first processed feed (B) should be kept
+	if merged.Agencies["agency1"].Name != "Agency B" {
+		t.Errorf("expected Agency B to be kept (processed first), got %s", merged.Agencies["agency1"].Name)
+	}
+}
+
+func TestMergeWithIdentityDetectionPreservesReferences(t *testing.T) {
+	// Given: two feeds with overlapping IDs and dependencies
+	feedA := gtfs.NewFeed()
+	feedA.Agencies["agency1"] = &gtfs.Agency{ID: "agency1", Name: "Agency A", URL: "http://a.com", Timezone: "UTC"}
+	feedA.Routes["route1"] = &gtfs.Route{ID: "route1", AgencyID: "agency1", ShortName: "R1A", Type: 3}
+	feedA.Calendars["svc1"] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	feedA.Trips["trip1"] = &gtfs.Trip{ID: "trip1", RouteID: "route1", ServiceID: "svc1"}
+
+	feedB := gtfs.NewFeed()
+	feedB.Agencies["agency1"] = &gtfs.Agency{ID: "agency1", Name: "Agency B", URL: "http://b.com", Timezone: "UTC"}
+	feedB.Routes["route1"] = &gtfs.Route{ID: "route1", AgencyID: "agency1", ShortName: "R1B", Type: 3}
+	feedB.Calendars["svc1"] = &gtfs.Calendar{ServiceID: "svc1", Monday: true, StartDate: "20240101", EndDate: "20241231"}
+	feedB.Trips["trip1"] = &gtfs.Trip{ID: "trip1", RouteID: "route1", ServiceID: "svc1"}
+
+	// When: merged with DetectionIdentity
+	merger := New(WithDefaultDetection(strategy.DetectionIdentity))
+	merged, err := merger.MergeFeeds([]*gtfs.Feed{feedA, feedB})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	// Then: only one of each entity type and references are valid
+	if len(merged.Agencies) != 1 {
+		t.Errorf("expected 1 agency, got %d", len(merged.Agencies))
+	}
+	if len(merged.Routes) != 1 {
+		t.Errorf("expected 1 route, got %d", len(merged.Routes))
+	}
+	if len(merged.Trips) != 1 {
+		t.Errorf("expected 1 trip, got %d", len(merged.Trips))
+	}
+	if len(merged.Calendars) != 1 {
+		t.Errorf("expected 1 calendar, got %d", len(merged.Calendars))
+	}
+
+	// Verify all references are valid
+	for _, route := range merged.Routes {
+		if _, ok := merged.Agencies[route.AgencyID]; !ok {
+			t.Errorf("route %s references non-existent agency %s", route.ID, route.AgencyID)
+		}
+	}
+	for _, trip := range merged.Trips {
+		if _, ok := merged.Routes[trip.RouteID]; !ok {
+			t.Errorf("trip %s references non-existent route %s", trip.ID, trip.RouteID)
+		}
+		if _, ok := merged.Calendars[trip.ServiceID]; !ok {
+			t.Errorf("trip %s references non-existent service %s", trip.ID, trip.ServiceID)
+		}
+	}
+}
+
+func TestMergeWithIdentityDetectionAndNoOverlap(t *testing.T) {
+	// Given: feeds with different IDs
+	feedA := gtfs.NewFeed()
+	feedA.Agencies["agency_a"] = &gtfs.Agency{ID: "agency_a", Name: "Agency A", URL: "http://a.com", Timezone: "UTC"}
+
+	feedB := gtfs.NewFeed()
+	feedB.Agencies["agency_b"] = &gtfs.Agency{ID: "agency_b", Name: "Agency B", URL: "http://b.com", Timezone: "UTC"}
+
+	// When: merged with DetectionIdentity
+	merger := New(WithDefaultDetection(strategy.DetectionIdentity))
+	merged, err := merger.MergeFeeds([]*gtfs.Feed{feedA, feedB})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	// Then: both agencies are present (no duplicates to merge)
+	if len(merged.Agencies) != 2 {
+		t.Errorf("expected 2 agencies, got %d", len(merged.Agencies))
+	}
+}
+
+func TestMergeSetDuplicateDetectionForAll(t *testing.T) {
+	// Test that SetDuplicateDetectionForAll works
+	merger := New()
+	merger.SetDuplicateDetectionForAll(strategy.DetectionIdentity)
+
+	// Verify by merging feeds with overlap
+	feedA := gtfs.NewFeed()
+	feedA.Agencies["shared"] = &gtfs.Agency{ID: "shared", Name: "A", URL: "http://a.com", Timezone: "UTC"}
+
+	feedB := gtfs.NewFeed()
+	feedB.Agencies["shared"] = &gtfs.Agency{ID: "shared", Name: "B", URL: "http://b.com", Timezone: "UTC"}
+
+	merged, err := merger.MergeFeeds([]*gtfs.Feed{feedA, feedB})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	// With identity detection, duplicates should be merged
+	if len(merged.Agencies) != 1 {
+		t.Errorf("expected 1 agency after identity merge, got %d", len(merged.Agencies))
+	}
+}
+
+func TestMergeGetStrategyForFile(t *testing.T) {
+	merger := New()
+
+	tests := []struct {
+		filename string
+		wantNil  bool
+	}{
+		{"agency.txt", false},
+		{"stops.txt", false},
+		{"routes.txt", false},
+		{"trips.txt", false},
+		{"calendar.txt", false},
+		{"calendar_dates.txt", false},
+		{"shapes.txt", false},
+		{"stop_times.txt", false},
+		{"frequencies.txt", false},
+		{"transfers.txt", false},
+		{"pathways.txt", false},
+		{"fare_attributes.txt", false},
+		{"fare_rules.txt", false},
+		{"feed_info.txt", false},
+		{"areas.txt", false},
+		{"unknown.txt", true},
+	}
+
+	for _, tt := range tests {
+		s := merger.GetStrategyForFile(tt.filename)
+		if tt.wantNil && s != nil {
+			t.Errorf("GetStrategyForFile(%q) should return nil", tt.filename)
+		}
+		if !tt.wantNil && s == nil {
+			t.Errorf("GetStrategyForFile(%q) should not return nil", tt.filename)
+		}
+	}
+}
+
+func TestMergeWithOverlapAndIdentityDetection(t *testing.T) {
+	// Test with actual overlap test data and identity detection
+	feedA, err := gtfs.ReadFromPath("../testdata/simple_a")
+	if err != nil {
+		t.Fatalf("failed to read simple_a: %v", err)
+	}
+
+	feedOverlap, err := gtfs.ReadFromPath("../testdata/overlap")
+	if err != nil {
+		t.Fatalf("failed to read overlap: %v", err)
+	}
+
+	// When: merged with DetectionIdentity
+	merger := New(WithDefaultDetection(strategy.DetectionIdentity))
+	merged, err := merger.MergeFeeds([]*gtfs.Feed{feedA, feedOverlap})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+
+	// The overlap feed has agency_a1 which conflicts with simple_a
+	// With identity detection, the duplicate should be merged
+	// simple_a has 2 agencies (agency_a1, agency_a2), overlap has 1 (agency_a1)
+	// Result should have 2 agencies total (agency_a1 deduplicated, agency_a2 unique)
+	if len(merged.Agencies) != 2 {
+		t.Errorf("expected 2 agencies with identity detection, got %d", len(merged.Agencies))
 	}
 
 	// Verify referential integrity is maintained

@@ -10,6 +10,7 @@ import (
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 	"github.com/aaronbrethorst/gtfs-merge-go/merge"
+	"github.com/aaronbrethorst/gtfs-merge-go/strategy"
 )
 
 func skipIfNoJava(t *testing.T) string {
@@ -647,19 +648,18 @@ func TestDetectionModes_ThreeFeedMerge(t *testing.T) {
 }
 
 func TestDetectionModes_OverlapWithIdentity(t *testing.T) {
-	// When Go implements identity detection, this test should verify
-	// that overlapping entities are properly merged
+	// Test Go's identity detection matches Java's identity detection
 	jarPath := skipIfNoJava(t)
 
 	javaMerger := NewJavaMerger(jarPath)
-	goMerger := merge.New()
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
 
 	inputA := "../testdata/simple_a"
 	inputOverlap := "../testdata/overlap"
 
 	tmpDir := t.TempDir()
 	javaOutput := filepath.Join(tmpDir, "java_identity.zip")
-	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+	goOutput := filepath.Join(tmpDir, "go_identity.zip")
 
 	// Java with identity detection
 	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, javaOutput, WithDuplicateDetection("identity"))
@@ -667,7 +667,7 @@ func TestDetectionModes_OverlapWithIdentity(t *testing.T) {
 		t.Fatalf("Java merge failed: %v", err)
 	}
 
-	// Go (currently uses none detection - will differ until identity is implemented)
+	// Go with identity detection
 	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
 	if err != nil {
 		t.Fatalf("Go merge failed: %v", err)
@@ -686,14 +686,15 @@ func TestDetectionModes_OverlapWithIdentity(t *testing.T) {
 
 	t.Logf("Overlap merge (Java identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
 		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Overlap merge (Go none) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+	t.Logf("Overlap merge (Go identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
 		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
-	// Note: This test documents the expected difference between Java identity and Go none
-	// When Go implements identity detection, these counts should match
-	if len(goFeed.Agencies) > len(javaFeed.Agencies) {
-		t.Logf("Go has more agencies than Java (expected until identity detection is implemented)")
-	}
+	// With identity detection, both should have similar entity counts
+	// (duplicates are merged, not prefixed)
+	compareCounts(t, "Agencies", len(javaFeed.Agencies), len(goFeed.Agencies))
+	compareCounts(t, "Stops", len(javaFeed.Stops), len(goFeed.Stops))
+	compareCounts(t, "Routes", len(javaFeed.Routes), len(goFeed.Routes))
+	compareCounts(t, "Trips", len(javaFeed.Trips), len(goFeed.Trips))
 
 	// Both should still produce valid output
 	javaErrs := javaFeed.Validate()
@@ -704,5 +705,201 @@ func TestDetectionModes_OverlapWithIdentity(t *testing.T) {
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go merged feed has validation errors: %v", goErrs)
+	}
+}
+
+// ============================================================================
+// Identity Detection Integration Tests (Milestone 8)
+// ============================================================================
+
+func TestIdentityDetection_GoMatchesJavaIdentity(t *testing.T) {
+	// Test that Go's identity detection produces similar results to Java's
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_identity.zip")
+	goOutput := filepath.Join(tmpDir, "go_identity.zip")
+
+	// Both with identity detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, javaOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Compare entity counts
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Java (identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips), len(javaFeed.StopTimes))
+	t.Logf("Go (identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips), len(goFeed.StopTimes))
+
+	// Entity counts should match (or be very close)
+	compareCounts(t, "Agencies", len(javaFeed.Agencies), len(goFeed.Agencies))
+	compareCounts(t, "Stops", len(javaFeed.Stops), len(goFeed.Stops))
+	compareCounts(t, "Routes", len(javaFeed.Routes), len(goFeed.Routes))
+	compareCounts(t, "Trips", len(javaFeed.Trips), len(goFeed.Trips))
+}
+
+func TestIdentityDetection_PreservesReferentialIntegrity(t *testing.T) {
+	// Verify Go's identity detection maintains valid foreign key references
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_identity.zip")
+
+	err := goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go identity-merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go identity-merged feed passes validation!")
+	}
+}
+
+func TestIdentityDetection_ThreeFeedMerge(t *testing.T) {
+	// Test identity detection with three feeds
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+
+	inputs := []string{
+		"../testdata/simple_a",
+		"../testdata/simple_b",
+		"../testdata/minimal",
+	}
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_three_identity.zip")
+	goOutput := filepath.Join(tmpDir, "go_three_identity.zip")
+
+	err := javaMerger.MergeQuiet(inputs, javaOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	err = goMerger.MergeFiles(inputs, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read feeds
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Three-feed merge (Java identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Three-feed merge (Go identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Validate both
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	if len(javaErrs) > 0 {
+		t.Errorf("Java three-feed identity merge has validation errors: %v", javaErrs)
+	}
+	if len(goErrs) > 0 {
+		t.Errorf("Go three-feed identity merge has validation errors: %v", goErrs)
+	}
+}
+
+func TestIdentityDetection_CompareNoneVsIdentity(t *testing.T) {
+	// Compare Go's output with none vs identity detection
+	goMergerNone := merge.New() // DetectionNone is default
+	goMergerIdentity := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	noneOutput := filepath.Join(tmpDir, "go_none.zip")
+	identityOutput := filepath.Join(tmpDir, "go_identity.zip")
+
+	err := goMergerNone.MergeFiles([]string{inputA, inputOverlap}, noneOutput)
+	if err != nil {
+		t.Fatalf("Go none merge failed: %v", err)
+	}
+
+	err = goMergerIdentity.MergeFiles([]string{inputA, inputOverlap}, identityOutput)
+	if err != nil {
+		t.Fatalf("Go identity merge failed: %v", err)
+	}
+
+	// Read feeds
+	noneFeed, err := gtfs.ReadFromPath(noneOutput)
+	if err != nil {
+		t.Fatalf("Failed to read none output: %v", err)
+	}
+
+	identityFeed, err := gtfs.ReadFromPath(identityOutput)
+	if err != nil {
+		t.Fatalf("Failed to read identity output: %v", err)
+	}
+
+	t.Logf("Go none detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(noneFeed.Agencies), len(noneFeed.Stops), len(noneFeed.Routes), len(noneFeed.Trips))
+	t.Logf("Go identity detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(identityFeed.Agencies), len(identityFeed.Stops), len(identityFeed.Routes), len(identityFeed.Trips))
+
+	// With overlapping feeds:
+	// - none detection should keep all entities (more entities, with prefixes)
+	// - identity detection should merge duplicates (fewer entities)
+	if len(noneFeed.Agencies) <= len(identityFeed.Agencies) {
+		t.Log("Note: none detection should have more entities than identity detection for overlapping feeds")
+	}
+
+	// Both should produce valid feeds
+	noneErrs := noneFeed.Validate()
+	identityErrs := identityFeed.Validate()
+
+	if len(noneErrs) > 0 {
+		t.Errorf("Go none merged feed has validation errors: %v", noneErrs)
+	}
+	if len(identityErrs) > 0 {
+		t.Errorf("Go identity merged feed has validation errors: %v", identityErrs)
 	}
 }

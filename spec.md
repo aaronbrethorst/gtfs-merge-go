@@ -2154,3 +2154,37 @@ This section tracks completed milestones with feedback and notes.
 - TDD approach: wrote 18 new tests (11 strategy + 7 enum), then implemented
 - All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
 - Total: 153 tests (without Java tag), 170 tests (with Java tag)
+
+#### Milestone 8 - Identity-Based Duplicate Detection
+- Implemented entity-specific merge strategies with identity-based duplicate detection
+- **Strategy Implementations** (`strategy/*.go`):
+  - `AgencyMergeStrategy` - Detects duplicate agencies by ID, maps to existing if found
+  - `StopMergeStrategy` - Handles stops with parent_station references
+  - `RouteMergeStrategy` - Maps agency references correctly
+  - `TripMergeStrategy` - Maps route, service, shape references
+  - `CalendarMergeStrategy` - Merges calendars and calendar_dates
+  - `ShapeMergeStrategy` - Handles shape points as groups
+  - `StopTimeMergeStrategy` - Detects duplicates by trip_id + stop_sequence
+  - `FrequencyMergeStrategy` - Detects duplicates by trip/start/end/headway
+  - `TransferMergeStrategy` - Detects duplicates by from/to stop and type
+  - `PathwayMergeStrategy` - Maps stop references, prefixes pathway IDs
+  - `FareAttributeMergeStrategy` - Maps agency references
+  - `FareRuleMergeStrategy` - Maps fare and route references
+  - `FeedInfoMergeStrategy` - Combines versions, expands date ranges
+  - `AreaMergeStrategy` - Identity-based area merging
+- **Merger Integration** (`merge/merger.go`):
+  - Refactored to use strategy instances for all entity types
+  - Added `SetDuplicateDetectionForAll()` for bulk configuration
+  - Added `GetStrategyForFile()` for file-based strategy lookup
+  - Added strategy setter methods for customization
+  - `WithDefaultDetection()` option for functional configuration
+- **New Tests**:
+  - 45 new strategy tests covering identity detection for all entity types
+  - 8 new merger integration tests for identity detection
+  - 5 new Java integration tests comparing Go identity vs Java identity
+- All strategies:
+  - Support `DetectionNone` (always add with prefix) and `DetectionIdentity` (merge by ID)
+  - Support `LogWarning` and `LogError` for duplicate logging
+  - Correctly map ID references to downstream entities
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 198+ tests (without Java tag)
