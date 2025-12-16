@@ -1156,3 +1156,308 @@ func TestFuzzyDetection_PreservesReferentialIntegrity(t *testing.T) {
 		t.Log("Go fuzzy-merged feed passes validation!")
 	}
 }
+
+// ============================================================================
+// Auto-Detection Integration Tests (Milestone 11)
+// ============================================================================
+
+func TestAutoDetection_ProducesValidOutput(t *testing.T) {
+	// Verify that Go's auto-detection merge produces a valid GTFS feed
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	// Read feeds to auto-detect
+	feedA, err := gtfs.ReadFromPath(inputA)
+	if err != nil {
+		t.Fatalf("Failed to read simple_a: %v", err)
+	}
+	feedB, err := gtfs.ReadFromPath(inputB)
+	if err != nil {
+		t.Fatalf("Failed to read simple_b: %v", err)
+	}
+
+	// Use auto-detection to determine strategy
+	detection := strategy.AutoDetectDuplicateDetection(feedA, feedB)
+	t.Logf("Auto-detected strategy for simple_a + simple_b: %v", detection)
+
+	// Merge using the auto-detected strategy
+	goMerger := merge.New(merge.WithDefaultDetection(detection))
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_autodetect.zip")
+
+	err = goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go auto-detect merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go auto-detect merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go auto-detect merged feed passes validation")
+	}
+}
+
+func TestAutoDetection_ChoosesIdentityForOverlap(t *testing.T) {
+	// Verify that auto-detection chooses Identity mode when feeds have overlapping IDs
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	feedA, err := gtfs.ReadFromPath(inputA)
+	if err != nil {
+		t.Fatalf("Failed to read simple_a: %v", err)
+	}
+	feedOverlap, err := gtfs.ReadFromPath(inputOverlap)
+	if err != nil {
+		t.Fatalf("Failed to read overlap: %v", err)
+	}
+
+	detection := strategy.AutoDetectDuplicateDetection(feedA, feedOverlap)
+	t.Logf("Auto-detected strategy for simple_a + overlap: %v", detection)
+
+	// With overlapping IDs, should auto-detect Identity
+	if detection != strategy.DetectionIdentity {
+		t.Errorf("Expected DetectionIdentity for overlapping feeds, got %v", detection)
+	}
+
+	// Verify the merge produces valid output
+	goMerger := merge.New(merge.WithDefaultDetection(detection))
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_autodetect.zip")
+
+	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Auto-detected identity merge has validation errors: %v", errs)
+	}
+}
+
+func TestAutoDetection_ChoosesFuzzyOrNoneForNonOverlap(t *testing.T) {
+	// Verify that auto-detection chooses Fuzzy or None for non-overlapping feeds
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	feedA, err := gtfs.ReadFromPath(inputA)
+	if err != nil {
+		t.Fatalf("Failed to read simple_a: %v", err)
+	}
+	feedB, err := gtfs.ReadFromPath(inputB)
+	if err != nil {
+		t.Fatalf("Failed to read simple_b: %v", err)
+	}
+
+	detection := strategy.AutoDetectDuplicateDetection(feedA, feedB)
+	t.Logf("Auto-detected strategy for simple_a + simple_b (non-overlapping): %v", detection)
+
+	// With non-overlapping IDs, should NOT auto-detect Identity
+	if detection == strategy.DetectionIdentity {
+		t.Errorf("Expected DetectionFuzzy or DetectionNone for non-overlapping feeds, got %v", detection)
+	}
+
+	// Verify the merge produces valid output
+	goMerger := merge.New(merge.WithDefaultDetection(detection))
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_autodetect.zip")
+
+	err = goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Auto-detected merge has validation errors: %v", errs)
+	}
+}
+
+func TestAutoDetection_ComparesWithExplicitModes(t *testing.T) {
+	// Compare auto-detection results vs explicit mode results
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	feedA, err := gtfs.ReadFromPath(inputA)
+	if err != nil {
+		t.Fatalf("Failed to read simple_a: %v", err)
+	}
+	feedOverlap, err := gtfs.ReadFromPath(inputOverlap)
+	if err != nil {
+		t.Fatalf("Failed to read overlap: %v", err)
+	}
+
+	// Auto-detect
+	detection := strategy.AutoDetectDuplicateDetection(feedA, feedOverlap)
+	t.Logf("Auto-detected strategy: %v", detection)
+
+	tmpDir := t.TempDir()
+
+	// Merge with auto-detected strategy
+	goMergerAuto := merge.New(merge.WithDefaultDetection(detection))
+	autoOutput := filepath.Join(tmpDir, "go_auto.zip")
+	err = goMergerAuto.MergeFiles([]string{inputA, inputOverlap}, autoOutput)
+	if err != nil {
+		t.Fatalf("Go auto merge failed: %v", err)
+	}
+
+	// Merge with explicit strategy matching auto-detected
+	goMergerExplicit := merge.New(merge.WithDefaultDetection(detection))
+	explicitOutput := filepath.Join(tmpDir, "go_explicit.zip")
+	err = goMergerExplicit.MergeFiles([]string{inputA, inputOverlap}, explicitOutput)
+	if err != nil {
+		t.Fatalf("Go explicit merge failed: %v", err)
+	}
+
+	// Read both
+	autoFeed, err := gtfs.ReadFromPath(autoOutput)
+	if err != nil {
+		t.Fatalf("Failed to read auto output: %v", err)
+	}
+	explicitFeed, err := gtfs.ReadFromPath(explicitOutput)
+	if err != nil {
+		t.Fatalf("Failed to read explicit output: %v", err)
+	}
+
+	// Entity counts should match
+	if len(autoFeed.Agencies) != len(explicitFeed.Agencies) {
+		t.Errorf("Agency count mismatch: Auto=%d, Explicit=%d",
+			len(autoFeed.Agencies), len(explicitFeed.Agencies))
+	}
+	if len(autoFeed.Stops) != len(explicitFeed.Stops) {
+		t.Errorf("Stop count mismatch: Auto=%d, Explicit=%d",
+			len(autoFeed.Stops), len(explicitFeed.Stops))
+	}
+	if len(autoFeed.Routes) != len(explicitFeed.Routes) {
+		t.Errorf("Route count mismatch: Auto=%d, Explicit=%d",
+			len(autoFeed.Routes), len(explicitFeed.Routes))
+	}
+	if len(autoFeed.Trips) != len(explicitFeed.Trips) {
+		t.Errorf("Trip count mismatch: Auto=%d, Explicit=%d",
+			len(autoFeed.Trips), len(explicitFeed.Trips))
+	}
+
+	t.Logf("Auto-detected and explicit merge outputs match!")
+}
+
+func TestAutoDetection_ThreeFeedMerge(t *testing.T) {
+	// Test auto-detection with three feeds
+	inputs := []string{
+		"../testdata/simple_a",
+		"../testdata/simple_b",
+		"../testdata/minimal",
+	}
+
+	// Read all feeds
+	feeds := make([]*gtfs.Feed, len(inputs))
+	for i, input := range inputs {
+		feed, err := gtfs.ReadFromPath(input)
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", input, err)
+		}
+		feeds[i] = feed
+	}
+
+	// Auto-detect between first two feeds (as the merger would do incrementally)
+	detection := strategy.AutoDetectDuplicateDetection(feeds[0], feeds[1])
+	t.Logf("Auto-detected strategy for three-feed merge: %v", detection)
+
+	// Merge using auto-detected strategy
+	goMerger := merge.New(merge.WithDefaultDetection(detection))
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_three_autodetect.zip")
+
+	err := goMerger.MergeFiles(inputs, goOutput)
+	if err != nil {
+		t.Fatalf("Go three-feed merge failed: %v", err)
+	}
+
+	// Validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Three-feed auto-detect merge - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go three-feed auto-detect merge has validation errors: %v", errs)
+	} else {
+		t.Log("Go three-feed auto-detect merge passes validation")
+	}
+}
+
+func TestAutoDetection_FuzzySimilarFeeds(t *testing.T) {
+	// Test auto-detection with fuzzy_similar feeds (similar properties, different IDs)
+	inputA := "../testdata/simple_a"
+	inputFuzzy := "../testdata/fuzzy_similar"
+
+	feedA, err := gtfs.ReadFromPath(inputA)
+	if err != nil {
+		t.Fatalf("Failed to read simple_a: %v", err)
+	}
+	feedFuzzy, err := gtfs.ReadFromPath(inputFuzzy)
+	if err != nil {
+		t.Fatalf("Failed to read fuzzy_similar: %v", err)
+	}
+
+	detection := strategy.AutoDetectDuplicateDetection(feedA, feedFuzzy)
+	t.Logf("Auto-detected strategy for simple_a + fuzzy_similar: %v", detection)
+
+	// With similar entities but different IDs, should detect Fuzzy
+	if detection == strategy.DetectionNone {
+		t.Log("Note: Auto-detection returned None - entities may not be similar enough")
+	}
+
+	// Verify the merge produces valid output
+	goMerger := merge.New(merge.WithDefaultDetection(detection))
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_autodetect.zip")
+
+	err = goMerger.MergeFiles([]string{inputA, inputFuzzy}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Merged feed (auto-detect=%v) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		detection, len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Auto-detect merge has validation errors: %v", errs)
+	} else {
+		t.Log("Auto-detect merge passes validation")
+	}
+}

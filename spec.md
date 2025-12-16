@@ -1958,6 +1958,7 @@ This section tracks completed milestones with feedback and notes.
 | 8.1-8.7 Identity-Based Duplicate Detection | ✅ Complete | `afd0146` | All entity strategies with identity detection, 45+ strategy tests, 5 Java integration tests |
 | 9.1-9.5 Duplicate Scoring Infrastructure | ✅ Complete | - | `scoring/` package with Scorer interface, PropertyMatcher, AndScorer, specialized scorers, 55 tests |
 | 10.1-10.4 Fuzzy Duplicate Detection | ✅ Complete | - | Fuzzy detection in Stop, Route, Trip, Calendar strategies; 18 new unit tests, 5 integration tests |
+| 11.1 Strategy Auto-Detection | ✅ Complete | `1e6558b` | AutoDetectDuplicateDetection() with configurable thresholds, 15 unit tests, 6 integration tests |
 
 ### Feedback & Notes
 
@@ -2247,3 +2248,24 @@ This section tracks completed milestones with feedback and notes.
   (scoring package imports strategy for MergeContext; strategy could not import scoring)
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 287+ tests (without Java tag)
+
+#### Milestone 11 - Auto-Detection of Strategy
+- Created `strategy/autodetect.go` with auto-detection logic
+- **AutoDetectConfig** struct with configurable thresholds:
+  - `MinElementsInCommonScoreForAutoDetect` (default 0.5) - ID overlap threshold for Identity mode
+  - `MinElementsDuplicateScoreForAutoDetect` (default 0.5) - Similarity threshold for Fuzzy mode
+- **AutoDetectDuplicateDetection()** function analyzes source and target feeds:
+  - Calculates ID overlap across agencies, stops, routes, trips, calendars
+  - If any entity type has overlap >= threshold → DetectionIdentity
+  - If no ID overlap but fuzzy similarity (names/locations) → DetectionFuzzy
+  - Otherwise → DetectionNone
+- **Fuzzy similarity detection** checks:
+  - Agencies: matching name or URL
+  - Stops: matching name AND within 500m (Haversine distance)
+  - Routes: matching short_name or long_name
+- Reuses existing `elementOverlapScore[T]` from route.go and `haversineDistance` from stop.go
+- **Tests**:
+  - 15 unit tests for auto-detection scenarios
+  - 6 Java integration tests for auto-detection validation
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 307+ tests (without Java tag)
