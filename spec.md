@@ -1869,7 +1869,7 @@ This section tracks completed milestones with feedback and notes.
 |-----------|--------|--------|-------|
 | 1.1 Initialize Go Module | ✅ Complete | `12a9687` | Created `go.mod` with module path `github.com/aaronbrethorst/gtfs-merge-go` |
 | 1.1.1 Set Up GitHub Actions CI | ✅ Complete | `2350017` | Added `.github/workflows/ci.yml` with lint, test, fmt, vet jobs |
-| 1.1.2 Quality Assurance Process | ⏳ In Progress | - | This milestone |
+| 1.1.2 Quality Assurance Process | ✅ Complete | `1852d40` | Defined 5-step QA process, added milestone tracking section |
 
 ### Feedback & Notes
 
@@ -1883,4 +1883,7 @@ This section tracks completed milestones with feedback and notes.
 - golangci-lint-action v4 for linting
 
 #### Milestone 1.1.2 - Quality Assurance Process
-_Notes will be added upon completion_
+- Defined 5-step QA process: code review, local CI checks, verification, commit, tracking update
+- Added milestone tracking section at end of spec.md
+- Code review suggested optional improvements (failure handling, date column) for future consideration
+- This QA process will be applied to all future milestones
