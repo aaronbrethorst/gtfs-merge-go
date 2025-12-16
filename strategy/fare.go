@@ -29,9 +29,10 @@ func (s *FareAttributeMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.FareIDMapping[fare.FareID] = existing.FareID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate fare_attribute detected with fare_id %q (keeping existing)", fare.FareID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate fare_attribute detected with fare_id %q", fare.FareID)
 				}
 

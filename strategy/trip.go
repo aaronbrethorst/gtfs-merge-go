@@ -35,9 +35,10 @@ func (s *TripMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.TripIDMapping[trip.ID] = existing.ID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate trip detected with ID %q (keeping existing)", trip.ID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate trip detected with ID %q", trip.ID)
 				}
 
@@ -52,9 +53,10 @@ func (s *TripMergeStrategy) Merge(ctx *MergeContext) error {
 				// Fuzzy duplicate detected - map source ID to existing target ID
 				ctx.TripIDMapping[trip.ID] = matchID
 
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Fuzzy duplicate trip detected: %q matches %q (keeping existing)", trip.ID, matchID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("fuzzy duplicate trip detected: %q matches %q", trip.ID, matchID)
 				}
 
