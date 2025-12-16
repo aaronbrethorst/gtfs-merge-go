@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color
+route_opt1,agency_opt,O1,Optional Route One,3,FF5500,FFFFFF
+route_opt2,agency_opt,O2,Optional Route Two,3,0055FF,FFFFFF

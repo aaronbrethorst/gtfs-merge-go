@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type
+stop.with.dots,Dotted Stop Name,39.7392,-104.9903,1
+stop_with_underscores,Underscore Station,39.7500,-104.9800,0
+stop-with-dashes,Dashed Terminal,39.7600,-104.9700,0

@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type
+stop_999999999999999999999999999,Very Large Stop ID,41.8781,-87.6298,1
+stop_888888888888888888888888888,Another Large Stop,41.8827,-87.6233,0
+stop_777777777777777777777777777,Third Large Stop,41.8850,-87.6260,0

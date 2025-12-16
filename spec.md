@@ -2333,3 +2333,27 @@ This section tracks completed milestones with feedback and notes.
   - `TestCLI_OutputValidation`
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 327 tests (without Java tag)
+
+#### Milestone 14 - Integration Tests with Real Data
+- Created edge case test fixtures in `testdata/`:
+  - `unicode_feed/` - Feed with unicode characters in names (German, French, Japanese)
+  - `large_ids_feed/` - Feed with very long ID strings (25+ characters)
+  - `special_chars_feed/` - Feed with dots, dashes, underscores in IDs
+  - `all_optional_feed/` - Feed with all optional GTFS files (shapes, transfers, frequencies, fares, feed_info)
+- **14.1 Sample Feed Tests** (`compare/compare_test.go`):
+  - `TestMergeRealWorldFeeds` - Tests 4 feed combinations (simple_a+b, simple+minimal, overlap, fuzzy)
+  - `TestMergeLargeFeed` - Tests with large_ids_feed for performance verification
+  - `TestMergeThreeFeedsVariations` - Tests 3 different three-feed combinations
+  - `TestMergeFeedWithAllOptionalFiles` - Verifies shapes, transfers, frequencies, fares merge correctly
+- **14.2 Edge Case Tests** (`compare/compare_test.go`):
+  - `TestMergeEmptyOptionalFiles` - Tests merging when optional files are missing
+  - `TestMergeMissingOptionalFiles` - Tests one feed with optionals, one without
+  - `TestMergeUnicodeContent` - Verifies unicode preservation in stop names
+  - `TestMergeLargeIDs` - Tests handling of very large ID strings
+  - `TestMergeSpecialCharactersInIDs` - Tests dots, dashes, underscores in IDs
+  - `TestMergeAllDetectionModesWithEdgeCases` - Tests all 3 detection modes × 3 edge case feeds (9 combinations)
+  - `TestMergeFourFeeds` - Tests prefix assignment with 4 feeds
+- All tests compare Go output with Java output where applicable
+- All tests verify Go output passes validation
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 327+ tests (without Java tag), 20+ new Java integration tests

@@ -1,0 +1,3 @@
+fare_id,route_id,origin_id,destination_id
+fare_opt1,route_opt1,zone_1,zone_2
+fare_opt2,route_opt2,,
