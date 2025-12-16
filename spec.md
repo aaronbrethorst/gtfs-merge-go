@@ -1947,10 +1947,10 @@ This section tracks completed milestones with feedback and notes.
 | 5.1 Merge Context | ✅ Complete | `0383cdb` | MergeContext struct with ID mappings, GetPrefixForIndex(), 5 tests |
 | 5.2 Basic Merger | ✅ Complete | `0383cdb` | Merger with MergeFiles() and MergeFeeds(), 12 tests |
 | 5.3 ID Prefixing | ✅ Complete | `0383cdb` | Feeds processed in reverse order with a_, b_, c_ prefixes, 4 tests |
-| 5.5.1 Java Tool Integration | ✅ Complete | `dcce2dc` | JavaMerger wrapper, download script, 4 tests |
-| 5.5.2 CSV Normalization | ✅ Complete | `dcce2dc` | NormalizeCSV(), PrimaryKey(), GTFSColumnOrder(), 11 tests |
-| 5.5.3 Comparison Framework | ✅ Complete | `dcce2dc` | CompareGTFS(), CompareCSV(), DiffResult, 6 tests |
-| 5.5.4 CI Integration | ✅ Complete | `dcce2dc` | Added compare-java job to CI workflow |
+| 5.5.1 Java Tool Integration | ✅ Complete | `5e3d1f1` | JavaMerger wrapper, download script, 4 tests |
+| 5.5.2 CSV Normalization | ✅ Complete | `5e3d1f1` | NormalizeCSV(), PrimaryKey(), GTFSColumnOrder(), 11 tests |
+| 5.5.3 Comparison Framework | ✅ Complete | `5e3d1f1` | CompareGTFS(), CompareCSV(), DiffResult, 6 tests |
+| 5.5.4 CI Integration | ✅ Complete | `5e3d1f1` | Added compare-java job to CI workflow |
 
 ### Feedback & Notes
 
