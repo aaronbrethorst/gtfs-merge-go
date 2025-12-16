@@ -1870,6 +1870,7 @@ This section tracks completed milestones with feedback and notes.
 | 1.1 Initialize Go Module | ✅ Complete | `12a9687` | Created `go.mod` with module path `github.com/aaronbrethorst/gtfs-merge-go` |
 | 1.1.1 Set Up GitHub Actions CI | ✅ Complete | `2350017` | Added `.github/workflows/ci.yml` with lint, test, fmt, vet jobs |
 | 1.1.2 Quality Assurance Process | ✅ Complete | `1852d40` | Defined 5-step QA process, added milestone tracking section |
+| 1.2 Define GTFS Entity Types | ✅ Complete | `a7c295a` | All 15 entity structs + 8 ID types, 16 tests passing |
 
 ### Feedback & Notes
 
@@ -1887,3 +1888,10 @@ This section tracks completed milestones with feedback and notes.
 - Added milestone tracking section at end of spec.md
 - Code review suggested optional improvements (failure handling, date column) for future consideration
 - This QA process will be applied to all future milestones
+
+#### Milestone 1.2 - Define GTFS Entity Types
+- Created `gtfs/model.go` with all 15 GTFS entity structs
+- Defined 8 type aliases for IDs (AgencyID, StopID, RouteID, etc.)
+- TDD approach: wrote reflection-based tests first, then implemented structs
+- All tests verify struct fields match the GTFS specification exactly
+- 16 tests total, all passing with race detector
