@@ -52,16 +52,17 @@ func NewMergeContext(source, target *gtfs.Feed) *MergeContext {
 
 // GetPrefixForIndex returns the prefix for a feed at the given index.
 // First feed (index 0) gets no prefix.
-// Feeds 1-25 get a_, b_, ..., z_.
-// Feeds 26+ get 00_, 01_, ..., 99_, etc.
+// Feeds 1-25 get a-, b-, ..., z-.
+// Feeds 26+ get 00-, 01-, ..., 99-, etc.
+// Note: Uses hyphen (-) delimiter to match Java implementation.
 func GetPrefixForIndex(index int) string {
 	if index == 0 {
 		return ""
 	}
 	if index <= 26 {
 		// Use letters a-z for feeds 1-26
-		return string(rune('a'+index-1)) + "_"
+		return string(rune('a'+index-1)) + "-"
 	}
 	// Use numeric prefixes for feeds 27+
-	return fmt.Sprintf("%02d_", index-27)
+	return fmt.Sprintf("%02d-", index-27)
 }

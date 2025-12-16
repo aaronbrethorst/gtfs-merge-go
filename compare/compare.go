@@ -327,3 +327,38 @@ func parseCSVLine(line string) []string {
 
 	return fields
 }
+
+// FormatDiffStyleOutput formats differences in a unified diff-like format
+// for clear terminal output when tests fail
+func FormatDiffStyleOutput(results []DiffResult) string {
+	var buf bytes.Buffer
+
+	for _, result := range results {
+		if len(result.Differences) == 0 {
+			continue
+		}
+
+		// Header similar to unified diff
+		buf.WriteString(fmt.Sprintf("--- expected/%s\n", result.File))
+		buf.WriteString(fmt.Sprintf("+++ actual/%s\n", result.File))
+		buf.WriteString(fmt.Sprintf("@@ %d difference(s) @@\n", len(result.Differences)))
+
+		for _, diff := range result.Differences {
+			switch diff.Type {
+			case RowMissing:
+				buf.WriteString(fmt.Sprintf("- [%s] %s\n", diff.Location, diff.Expected))
+			case RowExtra:
+				buf.WriteString(fmt.Sprintf("+ [%s] %s\n", diff.Location, diff.Actual))
+			case RowDifferent:
+				buf.WriteString(fmt.Sprintf("! [%s]\n", diff.Location))
+				buf.WriteString(fmt.Sprintf("-   %s\n", diff.Expected))
+				buf.WriteString(fmt.Sprintf("+   %s\n", diff.Actual))
+			case ColumnMissing:
+				buf.WriteString(fmt.Sprintf("! column missing: %s\n", diff.Expected))
+			}
+		}
+		buf.WriteString("\n")
+	}
+
+	return buf.String()
+}

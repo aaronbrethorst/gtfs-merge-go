@@ -199,25 +199,48 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 	}
 
 	csvw := NewCSVWriter(w)
-	header := []string{"route_id", "agency_id", "route_short_name", "route_long_name", "route_desc", "route_type", "route_url", "route_color", "route_text_color", "route_sort_order", "continuous_pickup", "continuous_drop_off"}
+
+	// Define all possible columns in order, with their getters
+	type colDef struct {
+		name   string
+		getter func(*Route) string
+	}
+	allCols := []colDef{
+		{"route_id", func(r *Route) string { return string(r.ID) }},
+		{"agency_id", func(r *Route) string { return string(r.AgencyID) }},
+		{"route_short_name", func(r *Route) string { return r.ShortName }},
+		{"route_long_name", func(r *Route) string { return r.LongName }},
+		{"route_desc", func(r *Route) string { return r.Desc }},
+		{"route_type", func(r *Route) string { return formatInt(r.Type) }},
+		{"route_url", func(r *Route) string { return r.URL }},
+		{"route_color", func(r *Route) string { return r.Color }},
+		{"route_text_color", func(r *Route) string { return r.TextColor }},
+		{"route_sort_order", func(r *Route) string { return formatInt(r.SortOrder) }},
+		{"continuous_pickup", func(r *Route) string { return formatInt(r.ContinuousPickup) }},
+		{"continuous_drop_off", func(r *Route) string { return formatInt(r.ContinuousDropOff) }},
+	}
+
+	// Filter to only columns present in source data
+	var activeCols []colDef
+	for _, col := range allCols {
+		if feed.HasColumn("routes.txt", col.name) {
+			activeCols = append(activeCols, col)
+		}
+	}
+
+	// Build header from active columns
+	header := make([]string, len(activeCols))
+	for i, col := range activeCols {
+		header[i] = col.name
+	}
 	if err := csvw.WriteHeader(header); err != nil {
 		return err
 	}
 
 	for _, r := range feed.Routes {
-		record := []string{
-			string(r.ID),
-			string(r.AgencyID),
-			r.ShortName,
-			r.LongName,
-			r.Desc,
-			formatInt(r.Type),
-			r.URL,
-			r.Color,
-			r.TextColor,
-			formatInt(r.SortOrder),
-			formatInt(r.ContinuousPickup),
-			formatInt(r.ContinuousDropOff),
+		record := make([]string, len(activeCols))
+		for i, col := range activeCols {
+			record[i] = col.getter(r)
 		}
 		if err := csvw.WriteRecord(record); err != nil {
 			return err
@@ -269,25 +292,48 @@ func writeStopTimes(zw *zip.Writer, feed *Feed) error {
 	}
 
 	csvw := NewCSVWriter(w)
-	header := []string{"trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence", "stop_headsign", "pickup_type", "drop_off_type", "continuous_pickup", "continuous_drop_off", "shape_dist_traveled", "timepoint"}
+
+	// Define all possible columns in order, with their getters
+	type colDef struct {
+		name   string
+		getter func(*StopTime) string
+	}
+	allCols := []colDef{
+		{"trip_id", func(st *StopTime) string { return string(st.TripID) }},
+		{"arrival_time", func(st *StopTime) string { return st.ArrivalTime }},
+		{"departure_time", func(st *StopTime) string { return st.DepartureTime }},
+		{"stop_id", func(st *StopTime) string { return string(st.StopID) }},
+		{"stop_sequence", func(st *StopTime) string { return formatInt(st.StopSequence) }},
+		{"stop_headsign", func(st *StopTime) string { return st.StopHeadsign }},
+		{"pickup_type", func(st *StopTime) string { return formatInt(st.PickupType) }},
+		{"drop_off_type", func(st *StopTime) string { return formatInt(st.DropOffType) }},
+		{"continuous_pickup", func(st *StopTime) string { return formatInt(st.ContinuousPickup) }},
+		{"continuous_drop_off", func(st *StopTime) string { return formatInt(st.ContinuousDropOff) }},
+		{"shape_dist_traveled", func(st *StopTime) string { return formatFloat(st.ShapeDistTraveled) }},
+		{"timepoint", func(st *StopTime) string { return formatInt(st.Timepoint) }},
+	}
+
+	// Filter to only columns present in source data
+	var activeCols []colDef
+	for _, col := range allCols {
+		if feed.HasColumn("stop_times.txt", col.name) {
+			activeCols = append(activeCols, col)
+		}
+	}
+
+	// Build header from active columns
+	header := make([]string, len(activeCols))
+	for i, col := range activeCols {
+		header[i] = col.name
+	}
 	if err := csvw.WriteHeader(header); err != nil {
 		return err
 	}
 
 	for _, st := range feed.StopTimes {
-		record := []string{
-			string(st.TripID),
-			st.ArrivalTime,
-			st.DepartureTime,
-			string(st.StopID),
-			formatInt(st.StopSequence),
-			st.StopHeadsign,
-			formatInt(st.PickupType),
-			formatInt(st.DropOffType),
-			formatInt(st.ContinuousPickup),
-			formatInt(st.ContinuousDropOff),
-			formatFloat(st.ShapeDistTraveled),
-			formatInt(st.Timepoint),
+		record := make([]string, len(activeCols))
+		for i, col := range activeCols {
+			record[i] = col.getter(st)
 		}
 		if err := csvw.WriteRecord(record); err != nil {
 			return err

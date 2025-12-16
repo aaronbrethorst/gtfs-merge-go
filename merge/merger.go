@@ -108,6 +108,9 @@ func (m *Merger) MergeFeeds(feeds []*gtfs.Feed) (*gtfs.Feed, error) {
 
 		ctx := strategy.NewMergeContext(feeds[i], target, prefix)
 
+		// Merge column sets from source feed to track which columns were present
+		target.MergeColumnSets(feeds[i])
+
 		if err := m.mergeFeed(ctx); err != nil {
 			return nil, fmt.Errorf("merging feed %d: %w", i, err)
 		}
