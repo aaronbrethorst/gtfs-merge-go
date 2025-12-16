@@ -106,7 +106,7 @@ This project follows a milestone-driven development process defined in `spec.md`
 2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
 3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
 
-**Current Status** (check spec.md for latest): Milestones 1.1, 1.1.1, 1.1.2, 1.2 are complete. Next milestone is **1.3 Define Feed Container**.
+**Current Status** (check spec.md for latest): Milestone 1 (Project Setup and GTFS Model) is complete. Next milestone is **2.1 CSV Reader Utility**.
 
 ### QA Process (Milestone 1.1.2)
 
