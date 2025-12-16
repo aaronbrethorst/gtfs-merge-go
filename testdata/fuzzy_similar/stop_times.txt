@@ -1,0 +1,4 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence
+fuzzy_trip1,07:00:00,07:00:00,fuzzy_stop3,1
+fuzzy_trip1,07:15:00,07:16:00,fuzzy_stop2,2
+fuzzy_trip1,07:30:00,07:30:00,fuzzy_stop1,3

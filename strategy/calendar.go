@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 )
@@ -10,12 +11,15 @@ import (
 // CalendarMergeStrategy handles merging of calendars between feeds
 type CalendarMergeStrategy struct {
 	BaseStrategy
+	// FuzzyThreshold is the minimum score for a fuzzy match (default 0.5)
+	FuzzyThreshold float64
 }
 
 // NewCalendarMergeStrategy creates a new CalendarMergeStrategy
 func NewCalendarMergeStrategy() *CalendarMergeStrategy {
 	return &CalendarMergeStrategy{
-		BaseStrategy: NewBaseStrategy("calendar"),
+		BaseStrategy:   NewBaseStrategy("calendar"),
+		FuzzyThreshold: 0.5,
 	}
 }
 
@@ -34,6 +38,23 @@ func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
 					log.Printf("WARNING: Duplicate calendar detected with service_id %q (keeping existing)", cal.ServiceID)
 				} else if s.DuplicateLogging == LogError {
 					return fmt.Errorf("duplicate calendar detected with service_id %q", cal.ServiceID)
+				}
+
+				// Skip adding this calendar - use the existing one
+				continue
+			}
+		}
+
+		// Check for fuzzy duplicates
+		if s.DuplicateDetection == DetectionFuzzy {
+			if matchID := s.findFuzzyMatch(ctx, cal); matchID != "" {
+				// Fuzzy duplicate detected - map source ID to existing target ID
+				ctx.ServiceIDMapping[cal.ServiceID] = matchID
+
+				if s.DuplicateLogging == LogWarning {
+					log.Printf("WARNING: Fuzzy duplicate calendar detected: %q matches %q (keeping existing)", cal.ServiceID, matchID)
+				} else if s.DuplicateLogging == LogError {
+					return fmt.Errorf("fuzzy duplicate calendar detected: %q matches %q", cal.ServiceID, matchID)
 				}
 
 				// Skip adding this calendar - use the existing one
@@ -65,6 +86,88 @@ func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
 	}
 
 	return nil
+}
+
+// findFuzzyMatch searches for a fuzzy duplicate in the target calendars.
+// Returns the ID of the matching calendar if found, or empty string if no match.
+// Uses date overlap scoring.
+func (s *CalendarMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Calendar) gtfs.ServiceID {
+	var bestMatch gtfs.ServiceID
+	var bestScore float64
+
+	for _, target := range ctx.Target.Calendars {
+		score := calendarDateOverlapScore(source, target)
+
+		if score >= s.FuzzyThreshold && score > bestScore {
+			bestScore = score
+			bestMatch = target.ServiceID
+		}
+	}
+
+	return bestMatch
+}
+
+// calendarDateOverlapScore returns the date overlap score between two calendars.
+func calendarDateOverlapScore(source, target *gtfs.Calendar) float64 {
+	sourceStart := parseGTFSDate(source.StartDate)
+	sourceEnd := parseGTFSDate(source.EndDate)
+	targetStart := parseGTFSDate(target.StartDate)
+	targetEnd := parseGTFSDate(target.EndDate)
+
+	if sourceStart == 0 || sourceEnd == 0 || targetStart == 0 || targetEnd == 0 {
+		return 0.0
+	}
+
+	// Adjust end dates to be inclusive (add one day worth of seconds)
+	// This makes "20240101" to "20240131" represent the full month including Jan 31
+	sourceEnd += 86400 // 24 * 60 * 60
+	targetEnd += 86400
+
+	return calendarIntervalOverlapScore(
+		float64(sourceStart), float64(sourceEnd),
+		float64(targetStart), float64(targetEnd),
+	)
+}
+
+// parseGTFSDate parses a GTFS date string (YYYYMMDD) to Unix timestamp.
+// Returns 0 for invalid or empty dates.
+func parseGTFSDate(dateStr string) int64 {
+	if dateStr == "" || len(dateStr) != 8 {
+		return 0
+	}
+
+	t, err := time.Parse("20060102", dateStr)
+	if err != nil {
+		return 0
+	}
+
+	return t.Unix()
+}
+
+// calendarIntervalOverlapScore calculates the overlap score between two intervals.
+// Formula: (overlap / interval_a_length + overlap / interval_b_length) / 2
+// Returns 0.0 if either interval has zero length or there's no overlap.
+func calendarIntervalOverlapScore(start1, end1, start2, end2 float64) float64 {
+	len1 := end1 - start1
+	len2 := end2 - start2
+
+	if len1 <= 0 || len2 <= 0 {
+		return 0.0
+	}
+
+	// Calculate overlap
+	overlapStart := max(start1, start2)
+	overlapEnd := min(end1, end2)
+	overlap := overlapEnd - overlapStart
+
+	if overlap <= 0 {
+		return 0.0
+	}
+
+	// Apply formula: (overlap/len1 + overlap/len2) / 2
+	scoreA := overlap / len1
+	scoreB := overlap / len2
+	return (scoreA + scoreB) / 2.0
 }
 
 // CalendarDateMergeStrategy handles merging of calendar dates between feeds

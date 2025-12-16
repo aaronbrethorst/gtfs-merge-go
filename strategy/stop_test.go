@@ -300,3 +300,201 @@ func TestStopMergeErrorOnDuplicate(t *testing.T) {
 		t.Fatal("Expected error when duplicate detected with LogError")
 	}
 }
+
+// Fuzzy detection tests for Milestone 10
+
+func TestStopMergeFuzzyByName(t *testing.T) {
+	// Given: stops with different IDs but same name and nearby location
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+		ID:   "stop_a",
+		Name: "Downtown Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	target := gtfs.NewFeed()
+	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+		ID:   "stop_b",
+		Name: "Downtown Station",
+		Lat:  40.7128, // Same location (0m apart)
+		Lon:  -74.0060,
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewStopMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: detected as duplicates - source stop should map to target stop
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should only have one stop (the original target stop)
+	if len(target.Stops) != 1 {
+		t.Errorf("Expected 1 stop (fuzzy duplicate detected), got %d", len(target.Stops))
+	}
+
+	// Source ID should map to target ID
+	if ctx.StopIDMapping["stop_a"] != "stop_b" {
+		t.Errorf("Expected StopIDMapping[stop_a] = stop_b, got %q", ctx.StopIDMapping["stop_a"])
+	}
+}
+
+func TestStopMergeFuzzyByDistance(t *testing.T) {
+	// Given: stops with different IDs, same name, but within threshold distance
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+		ID:   "stop_a",
+		Name: "Central Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	target := gtfs.NewFeed()
+	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+		ID:   "stop_b",
+		Name: "Central Station",
+		// ~30m away (well within 50m threshold for score 1.0)
+		Lat: 40.7130,
+		Lon: -74.0062,
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewStopMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: detected as duplicates
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.Stops) != 1 {
+		t.Errorf("Expected 1 stop (fuzzy duplicate detected), got %d", len(target.Stops))
+	}
+
+	if ctx.StopIDMapping["stop_a"] != "stop_b" {
+		t.Errorf("Expected StopIDMapping[stop_a] = stop_b, got %q", ctx.StopIDMapping["stop_a"])
+	}
+}
+
+func TestStopMergeFuzzyNoMatch_DifferentName(t *testing.T) {
+	// Given: stops with different IDs and different names, even if same location
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+		ID:   "stop_a",
+		Name: "Downtown Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	target := gtfs.NewFeed()
+	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+		ID:   "stop_b",
+		Name: "Uptown Station", // Different name
+		Lat:  40.7128,          // Same location
+		Lon:  -74.0060,
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewStopMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: NOT detected as duplicates (name doesn't match)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should have two stops (no fuzzy match due to different names)
+	if len(target.Stops) != 2 {
+		t.Errorf("Expected 2 stops (no fuzzy match), got %d", len(target.Stops))
+	}
+}
+
+func TestStopMergeFuzzyNoMatch_TooFarApart(t *testing.T) {
+	// Given: stops with same name but too far apart (>500m)
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+		ID:   "stop_a",
+		Name: "Downtown Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	target := gtfs.NewFeed()
+	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+		ID:   "stop_b",
+		Name: "Downtown Station", // Same name
+		Lat:  40.7228,            // ~1.1km away (beyond 500m threshold)
+		Lon:  -74.0160,
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewStopMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy
+	err := strategy.Merge(ctx)
+
+	// Then: NOT detected as duplicates (too far apart)
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Should have two stops (no fuzzy match due to distance)
+	if len(target.Stops) != 2 {
+		t.Errorf("Expected 2 stops (no fuzzy match - too far), got %d", len(target.Stops))
+	}
+}
+
+func TestStopMergeFuzzyWithPrefix(t *testing.T) {
+	// Given: stops with different names, no match expected, collision should add prefix
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+		ID:   "stop1",
+		Name: "Source Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	target := gtfs.NewFeed()
+	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+		ID:   "stop1",
+		Name: "Target Station", // Different name
+		Lat:  41.0,             // Different location
+		Lon:  -75.0,
+	}
+
+	ctx := NewMergeContext(source, target, "a_")
+	strategy := NewStopMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+
+	// When: merged with DetectionFuzzy and collision
+	err := strategy.Merge(ctx)
+
+	// Then: no fuzzy match, but collision should add prefix
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.Stops) != 2 {
+		t.Errorf("Expected 2 stops, got %d", len(target.Stops))
+	}
+
+	if _, ok := target.Stops["a_stop1"]; !ok {
+		t.Error("Expected a_stop1 to be in target (prefixed due to collision)")
+	}
+
+	if ctx.StopIDMapping["stop1"] != "a_stop1" {
+		t.Errorf("Expected StopIDMapping[stop1] = a_stop1, got %q", ctx.StopIDMapping["stop1"])
+	}
+}

@@ -1957,6 +1957,7 @@ This section tracks completed milestones with feedback and notes.
 | 7.2 Detection/Logging/Renaming Enums | ✅ Complete | `a53053c` | DuplicateDetection, DuplicateLogging, RenamingStrategy enums with String() and Parse methods, 7 tests |
 | 8.1-8.7 Identity-Based Duplicate Detection | ✅ Complete | `afd0146` | All entity strategies with identity detection, 45+ strategy tests, 5 Java integration tests |
 | 9.1-9.5 Duplicate Scoring Infrastructure | ✅ Complete | - | `scoring/` package with Scorer interface, PropertyMatcher, AndScorer, specialized scorers, 55 tests |
+| 10.1-10.4 Fuzzy Duplicate Detection | ✅ Complete | - | Fuzzy detection in Stop, Route, Trip, Calendar strategies; 18 new unit tests, 5 integration tests |
 
 ### Feedback & Notes
 
@@ -2213,3 +2214,36 @@ This section tracks completed milestones with feedback and notes.
 - TDD approach: wrote 55 new tests, then implemented
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 269 tests (without Java tag)
+
+#### Milestone 10 - Fuzzy Duplicate Detection
+- Implemented `DetectionFuzzy` mode for Stop, Route, Trip, and Calendar strategies
+- **Stop Strategy** (`strategy/stop.go`):
+  - `findFuzzyMatch()` method searches for similar stops by name + distance
+  - `stopNameScore()` - returns 1.0 for exact match, 0.0 otherwise
+  - `stopDistanceScore()` - uses Haversine formula: < 50m → 1.0, < 100m → 0.75, < 500m → 0.5, else 0.0
+  - Score = nameScore * distScore; matches if >= FuzzyThreshold (default 0.8)
+- **Route Strategy** (`strategy/route.go`):
+  - `findFuzzyMatch()` scores routes by agency + names + shared stops
+  - `routeAgencyScore()`, `routePropertyScore()`, `routeStopsInCommonScore()`, `getStopsForRoute()`
+  - Uses `elementOverlapScore()` for set overlap calculations
+- **Trip Strategy** (`strategy/trip.go`):
+  - `findFuzzyMatch()` scores trips by route + service + stops + schedule overlap
+  - `validateTripStopTimes()` - validates exact stop time match before accepting fuzzy duplicate
+  - Ensures stop count, sequence, and times all match exactly
+  - Uses `tripScheduleOverlapScore()` for time window overlap
+- **Calendar Strategy** (`strategy/calendar.go`):
+  - `findFuzzyMatch()` scores calendars by date range overlap
+  - Uses `calendarDateOverlapScore()` with interval overlap calculation
+  - `parseGTFSDate()` helper for date parsing
+- **Test Data**:
+  - Created `testdata/fuzzy_similar/` with entities having different IDs but similar properties to `simple_a`
+- **New Tests**:
+  - 5 new tests for Stop fuzzy detection
+  - 4 new tests for Route fuzzy detection
+  - 5 new tests for Trip fuzzy detection (including validation rejection test)
+  - 4 new tests for Calendar fuzzy detection
+  - 5 new Java integration tests for fuzzy detection validation
+- **Key Design Decision**: Implemented scoring logic directly in strategy files to avoid import cycle
+  (scoring package imports strategy for MergeContext; strategy could not import scoring)
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 287+ tests (without Java tag)

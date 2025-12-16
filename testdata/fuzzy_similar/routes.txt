@@ -1,0 +1,2 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color
+fuzzy_route1,fuzzy_agency1,A1,Downtown Express,3,FF0000

@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang
+fuzzy_agency1,Transit Authority A,http://transit-a.example.com,America/New_York,en
