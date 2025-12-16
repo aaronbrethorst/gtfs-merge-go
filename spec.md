@@ -1960,6 +1960,7 @@ This section tracks completed milestones with feedback and notes.
 | 10.1-10.4 Fuzzy Duplicate Detection | ✅ Complete | - | Fuzzy detection in Stop, Route, Trip, Calendar strategies; 18 new unit tests, 5 integration tests |
 | 11.1 Strategy Auto-Detection | ✅ Complete | `1e6558b` | AutoDetectDuplicateDetection() with configurable thresholds, 15 unit tests, 6 integration tests |
 | 12.1-12.2 Merger Configuration Options | ✅ Complete | - | Functional options (WithDebug, WithDefaultDetection, WithDefaultLogging, WithDefaultRenaming), per-strategy setters, GetStrategyForFile(), 10 unit tests, 6 Java integration tests |
+| 13.1-13.2 CLI Application | ✅ Complete | `3985f1b` | Command-line interface in `cmd/gtfs-merge/`, parseArgs() with flags, runMerge() integration, 15 unit tests, 7 Java integration tests |
 
 ### Feedback & Notes
 
@@ -2300,3 +2301,35 @@ This section tracks completed milestones with feedback and notes.
   - `TestConfigOptions_StrategySettersProduceValidOutput`
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 317+ tests (without Java tag)
+
+#### Milestone 13 - CLI Application
+- Created `cmd/gtfs-merge/` package with full CLI implementation
+- **Argument Parsing** (`cmd/gtfs-merge/main.go`):
+  - `parseArgs()` function with comprehensive flag parsing
+  - Support for `--help`, `--version`, `--debug` flags
+  - `--duplicateDetection=MODE` (none, identity, fuzzy)
+  - `--logging=MODE` (none, warning, error)
+  - `--file=FILENAME` for per-file strategy configuration
+  - Proper validation and error handling
+- **CLI End-to-End** (`cmd/gtfs-merge/main.go`):
+  - `runMerge()` integrates with merge package options
+  - Applies per-file configurations to strategies
+  - Clear usage help with examples
+- **Unit Tests** (`cmd/gtfs-merge/main_test.go`):
+  - `TestParseArgsMinimum`, `TestParseArgsMultipleInputs`
+  - `TestParseArgsWithOptions`, `TestParseArgsFileOption`
+  - `TestParseArgsDuplicateDetection`, `TestParseArgsHelp`
+  - `TestParseArgsVersion`, `TestParseArgsInvalid`
+  - `TestCLIMergeTwoFeeds`, `TestCLIWithDuplicateDetection`
+  - `TestCLIWithPerFileConfig`, `TestCLIDebugOutput`
+  - `TestCLIErrorOnInvalidInput`, `TestCLIOutputFileSize`
+  - `TestCLIMergeThreeFeeds`
+- **Java Integration Tests** (`compare/compare_test.go`):
+  - `TestCLI_JavaVsGoBasicMerge`
+  - `TestCLI_JavaVsGoIdentityDetection`
+  - `TestCLI_JavaVsGoThreeFeeds`
+  - `TestCLI_GoValidOutputWithAllModes`
+  - `TestCLI_JavaVsGoFuzzyDetection`
+  - `TestCLI_OutputValidation`
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 327 tests (without Java tag)

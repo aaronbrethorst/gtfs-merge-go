@@ -33,9 +33,11 @@ go test -v -race ./...
 # Run benchmarks
 go test -bench=. ./...
 
-# CLI (planned - milestone 13)
-# go build -o gtfs-merge ./cmd/gtfs-merge
-# ./gtfs-merge feed1.zip feed2.zip merged.zip
+# Build and run CLI
+go build -o gtfs-merge ./cmd/gtfs-merge
+./gtfs-merge feed1.zip feed2.zip merged.zip
+./gtfs-merge --duplicateDetection=identity feed1.zip feed2.zip merged.zip
+./gtfs-merge --help
 ```
 
 ## Architecture
@@ -64,11 +66,18 @@ The codebase follows a modular structure with clear separation of concerns:
   - `compare.go` - CompareGTFS() compares two GTFS outputs with detailed diff reporting
   - Tests use `//go:build java` tag (skipped without Java 21+, run in CI)
 
-### Planned Packages (see spec.md)
-
 - **`strategy/`** - Entity-specific merge strategies with duplicate detection
+  - `strategy.go` - EntityMergeStrategy interface, MergeContext, BaseStrategy
+  - `enums.go` - DuplicateDetection, DuplicateLogging, RenamingStrategy enums
+  - `autodetect.go` - AutoDetectDuplicateDetection() for automatic mode selection
+  - Entity strategies: agency.go, stop.go, route.go, trip.go, calendar.go, etc.
+
 - **`scoring/`** - Duplicate similarity scoring for fuzzy matching
+  - `scorer.go` - Scorer interface, PropertyMatcher, AndScorer
+  - Specialized scorers: stop_distance.go, route_stops.go, trip_stops.go, etc.
+
 - **`cmd/gtfs-merge/`** - CLI application
+  - `main.go` - Argument parsing, merge execution, help/version output
 
 ### Entity Processing Order
 
@@ -88,7 +97,7 @@ Entities are merged in dependency order to maintain referential integrity:
 
 - **Reverse Processing Order**: Feeds are processed in reverse order (last feed first). The last feed gets no prefix, earlier feeds get prefixes (a_, b_, c_, etc.). This ensures newer data takes precedence.
 - **ID Prefixing**: When IDs collide, earlier feeds get prefixes applied to all entities and references. Prefixes: "" (last feed), "a_" (second-to-last), "b_", ..., "z_", then "00_", "01_", etc.
-- **Duplicate Detection** (planned): Three modes - `DetectionNone` (always add), `DetectionIdentity` (same ID), `DetectionFuzzy` (property similarity)
+- **Duplicate Detection**: Three modes - `DetectionNone` (always add), `DetectionIdentity` (same ID), `DetectionFuzzy` (property similarity)
 - **Functional Options**: `merge.New(WithDebug(true))`
 
 ## Development Approach
@@ -111,7 +120,7 @@ This project follows a milestone-driven development process defined in `spec.md`
 2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
 3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
 
-**Current Status** (check spec.md for latest): Milestones 1-6 are complete. The project has a working merge capability with Java comparison testing and feed validation. Next milestone is **7: Strategy Interface and Base Classes**.
+**Current Status** (check spec.md for latest): Milestones 1-13 are complete. The project has a fully functional GTFS merge CLI with duplicate detection (none, identity, fuzzy), Java comparison testing, and feed validation. Next milestone is **14: Integration Tests with Real Data**.
 
 ### QA Process (Milestone 1.1.2)
 
