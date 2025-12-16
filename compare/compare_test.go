@@ -1798,3 +1798,333 @@ func TestConfigOptions_StrategySettersProduceValidOutput(t *testing.T) {
 		t.Log("Go all setters merged feed passes validation")
 	}
 }
+
+// ============================================================================
+// Milestone 13: CLI Java Integration Tests
+// ============================================================================
+
+func TestCLI_JavaVsGoBasicMerge(t *testing.T) {
+	// Compare basic CLI merge output with Java
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_merged.zip")
+	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+
+	// Java merge
+	err := javaMerger.MergeQuiet([]string{inputA, inputB}, javaOutput)
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go CLI-style merge
+	err = goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Both should produce valid output
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	// Compare entity counts
+	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Validate both
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	if len(javaErrs) > 0 {
+		t.Logf("Java feed validation errors: %d", len(javaErrs))
+	}
+	if len(goErrs) > 0 {
+		t.Errorf("Go feed validation errors: %d", len(goErrs))
+		for _, e := range goErrs {
+			t.Errorf("  - %v", e)
+		}
+	}
+}
+
+func TestCLI_JavaVsGoIdentityDetection(t *testing.T) {
+	// Compare CLI with identity detection vs Java
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_identity.zip")
+	goOutput := filepath.Join(tmpDir, "go_identity.zip")
+
+	// Java with identity detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, javaOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go with identity detection (simulating CLI --duplicateDetection=identity)
+	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Both should produce valid output
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	// Compare entity counts - identity detection should reduce duplicates
+	t.Logf("With Identity Detection:")
+	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Validate Go output
+	errs := goFeed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go feed validation errors: %d", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	}
+}
+
+func TestCLI_JavaVsGoThreeFeeds(t *testing.T) {
+	// Compare three-feed merge via CLI
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputs := []string{
+		"../testdata/simple_a",
+		"../testdata/simple_b",
+		"../testdata/minimal",
+	}
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_three.zip")
+	goOutput := filepath.Join(tmpDir, "go_three.zip")
+
+	// Java merge
+	err := javaMerger.MergeQuiet(inputs, javaOutput)
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go CLI-style merge
+	err = goMerger.MergeFiles(inputs, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Both should produce valid output
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	// Compare entity counts
+	t.Logf("Three-feed merge:")
+	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Validate Go output
+	errs := goFeed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go feed validation errors: %d", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	}
+}
+
+func TestCLI_GoValidOutputWithAllModes(t *testing.T) {
+	// Test that Go CLI produces valid output with all detection modes
+	modes := []struct {
+		name      string
+		detection strategy.DuplicateDetection
+	}{
+		{"none", strategy.DetectionNone},
+		{"identity", strategy.DetectionIdentity},
+		{"fuzzy", strategy.DetectionFuzzy},
+	}
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			goMerger := merge.New(merge.WithDefaultDetection(mode.detection))
+
+			inputA := "../testdata/simple_a"
+			inputOverlap := "../testdata/overlap"
+
+			tmpDir := t.TempDir()
+			goOutput := filepath.Join(tmpDir, "go_"+mode.name+".zip")
+
+			err := goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+			if err != nil {
+				t.Fatalf("Go merge with %s detection failed: %v", mode.name, err)
+			}
+
+			// Validate output
+			feed, err := gtfs.ReadFromPath(goOutput)
+			if err != nil {
+				t.Fatalf("Failed to read Go output: %v", err)
+			}
+
+			t.Logf("%s detection: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+				mode.name, len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
+
+			errs := feed.Validate()
+			if len(errs) > 0 {
+				t.Errorf("Go feed with %s detection has validation errors:", mode.name)
+				for _, e := range errs {
+					t.Errorf("  - %v", e)
+				}
+			}
+		})
+	}
+}
+
+func TestCLI_JavaVsGoFuzzyDetection(t *testing.T) {
+	// Compare fuzzy detection between Java and Go
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionFuzzy))
+
+	inputA := "../testdata/simple_a"
+	inputFuzzy := "../testdata/fuzzy_similar"
+
+	// Check if fuzzy_similar exists
+	if _, err := os.Stat(inputFuzzy); os.IsNotExist(err) {
+		t.Skip("fuzzy_similar test fixture not found")
+	}
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_fuzzy.zip")
+	goOutput := filepath.Join(tmpDir, "go_fuzzy.zip")
+
+	// Java with fuzzy detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputFuzzy}, javaOutput, WithDuplicateDetection("fuzzy"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go with fuzzy detection
+	err = goMerger.MergeFiles([]string{inputA, inputFuzzy}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Both should produce valid output
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	// Compare entity counts - fuzzy should merge similar entities
+	t.Logf("With Fuzzy Detection:")
+	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Validate Go output
+	errs := goFeed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go feed validation errors: %d", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	}
+}
+
+func TestCLI_OutputValidation(t *testing.T) {
+	// Comprehensive validation of CLI output
+	goMerger := merge.New(
+		merge.WithDebug(true),
+		merge.WithDefaultDetection(strategy.DetectionIdentity),
+		merge.WithDefaultLogging(strategy.LogWarning),
+	)
+
+	inputs := []string{
+		"../testdata/simple_a",
+		"../testdata/simple_b",
+		"../testdata/overlap",
+	}
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_comprehensive.zip")
+
+	err := goMerger.MergeFiles(inputs, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Validate output
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Comprehensive merge: Agencies=%d, Stops=%d, Routes=%d, Trips=%d, StopTimes=%d",
+		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips), len(feed.StopTimes))
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go comprehensive merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go comprehensive merged feed passes validation")
+	}
+
+	// Verify output file exists and has reasonable size
+	info, err := os.Stat(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to stat output: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Error("Output file has zero size")
+	}
+	t.Logf("Output file size: %d bytes", info.Size())
+}
