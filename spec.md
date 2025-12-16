@@ -1953,6 +1953,8 @@ This section tracks completed milestones with feedback and notes.
 | 5.5.4 CI Integration | ✅ Complete | `5e3d1f1` | Added compare-java job to CI workflow |
 | 6.1 Referential Integrity Validation | ✅ Complete | `aca9ebc` | Validate() method with refs for routes, trips, stop_times, transfers, fares, pathways, 15 tests |
 | 6.2 Required Field Validation | ✅ Complete | `aca9ebc` | Required field checks for agency, stop, route, trip, stop_time, calendar, 6 tests |
+| 7.1 Strategy Interface | ✅ Complete | `a53053c` | EntityMergeStrategy interface, MergeContext, BaseStrategy with default implementations, 11 tests |
+| 7.2 Detection/Logging/Renaming Enums | ✅ Complete | `a53053c` | DuplicateDetection, DuplicateLogging, RenamingStrategy enums with String() and Parse methods, 7 tests |
 
 ### Feedback & Notes
 
@@ -2130,3 +2132,25 @@ This section tracks completed milestones with feedback and notes.
   - `TestValidation_BothMergedFeedsValidate` - Compare validation results for both outputs
   - `TestValidation_MergeWithOverlapPassesValidation` - Overlapping ID merge produces valid output
 - Total: 142 tests (without Java tag), 155 tests (with Java tag)
+
+#### Milestone 7 - Strategy Interface and Base Classes
+- Created new `strategy/` package with core merge strategy abstractions
+- **Enum Types** (`strategy/enums.go`):
+  - `DuplicateDetection`: DetectionNone, DetectionIdentity, DetectionFuzzy
+  - `DuplicateLogging`: LogNone, LogWarning, LogError
+  - `RenamingStrategy`: RenameContext, RenameAgency
+  - All enums have `String()` method for debugging/logging
+  - `ParseDuplicateDetection()` function for CLI parsing (case-insensitive)
+- **Strategy Interface** (`strategy/strategy.go`):
+  - `EntityMergeStrategy` interface with Name(), Merge(), SetDuplicateDetection(), SetDuplicateLogging(), SetRenamingStrategy()
+  - `MergeContext` struct with Source/Target feeds, Prefix, ID mappings, ResolvedDetection
+  - `BaseStrategy` struct for embedding in concrete strategies with default implementations
+  - `NewMergeContext()` and `NewBaseStrategy()` constructor functions
+- **Java-Go Integration Tests** (4 new tests for detection modes):
+  - `TestDetectionModes_JavaIdentityVsNone` - Compare Java's identity vs none detection
+  - `TestDetectionModes_GoMatchesJavaNone` - Verify Go matches Java with none detection
+  - `TestDetectionModes_ThreeFeedMerge` - Three-feed merge comparison
+  - `TestDetectionModes_OverlapWithIdentity` - Document difference until identity detection is implemented
+- TDD approach: wrote 18 new tests (11 strategy + 7 enum), then implemented
+- All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
+- Total: 153 tests (without Java tag), 170 tests (with Java tag)

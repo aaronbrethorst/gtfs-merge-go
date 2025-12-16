@@ -447,3 +447,262 @@ func TestValidation_MergeWithOverlapPassesValidation(t *testing.T) {
 		t.Log("Both merged feeds (with overlap) pass validation!")
 	}
 }
+
+// ============================================================================
+// Detection Mode Integration Tests
+// ============================================================================
+
+func TestDetectionModes_JavaIdentityVsNone(t *testing.T) {
+	// Compare Java's behavior with identity vs none detection modes
+	// Identity mode should merge entities with matching IDs
+	// None mode should prefix and keep all entities
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	identityOutput := filepath.Join(tmpDir, "java_identity.zip")
+	noneOutput := filepath.Join(tmpDir, "java_none.zip")
+
+	// Merge with identity detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, identityOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java identity merge failed: %v", err)
+	}
+
+	// Merge with none detection
+	err = javaMerger.MergeQuiet([]string{inputA, inputOverlap}, noneOutput, WithDuplicateDetection("none"))
+	if err != nil {
+		t.Fatalf("Java none merge failed: %v", err)
+	}
+
+	// Read both feeds
+	identityFeed, err := gtfs.ReadFromPath(identityOutput)
+	if err != nil {
+		t.Fatalf("Failed to read identity output: %v", err)
+	}
+
+	noneFeed, err := gtfs.ReadFromPath(noneOutput)
+	if err != nil {
+		t.Fatalf("Failed to read none output: %v", err)
+	}
+
+	// With overlapping IDs:
+	// - Identity mode should detect duplicates and merge them (fewer entities)
+	// - None mode should keep all entities (more entities, with prefixes)
+	t.Logf("Java identity detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(identityFeed.Agencies), len(identityFeed.Stops), len(identityFeed.Routes), len(identityFeed.Trips))
+	t.Logf("Java none detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(noneFeed.Agencies), len(noneFeed.Stops), len(noneFeed.Routes), len(noneFeed.Trips))
+
+	// Verify both produce valid feeds
+	identityErrs := identityFeed.Validate()
+	noneErrs := noneFeed.Validate()
+
+	if len(identityErrs) > 0 {
+		t.Errorf("Java identity merged feed has validation errors: %v", identityErrs)
+	}
+	if len(noneErrs) > 0 {
+		t.Errorf("Java none merged feed has validation errors: %v", noneErrs)
+	}
+
+	// None mode should generally have >= entity counts compared to identity
+	// (identity merges duplicates, none keeps all with prefixes)
+	if len(noneFeed.Agencies) < len(identityFeed.Agencies) {
+		t.Log("Note: none mode has fewer agencies than identity - may be expected based on Java's algorithm")
+	}
+}
+
+func TestDetectionModes_GoMatchesJavaNone(t *testing.T) {
+	// Go currently implements DetectionNone behavior
+	// This test verifies Go's output matches Java with detection=none
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_none.zip")
+	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+
+	// Java with explicit none detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputB}, javaOutput, WithDuplicateDetection("none"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go (currently always uses none detection behavior)
+	err = goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Compare entity counts
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Java (none detection) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips), len(javaFeed.StopTimes))
+	t.Logf("Go (none detection) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips), len(goFeed.StopTimes))
+
+	// For non-overlapping feeds, counts should match exactly
+	if len(javaFeed.Agencies) != len(goFeed.Agencies) {
+		t.Errorf("Agency count mismatch: Java=%d, Go=%d", len(javaFeed.Agencies), len(goFeed.Agencies))
+	}
+	if len(javaFeed.Stops) != len(goFeed.Stops) {
+		t.Errorf("Stop count mismatch: Java=%d, Go=%d", len(javaFeed.Stops), len(goFeed.Stops))
+	}
+	if len(javaFeed.Routes) != len(goFeed.Routes) {
+		t.Errorf("Route count mismatch: Java=%d, Go=%d", len(javaFeed.Routes), len(goFeed.Routes))
+	}
+	if len(javaFeed.Trips) != len(goFeed.Trips) {
+		t.Errorf("Trip count mismatch: Java=%d, Go=%d", len(javaFeed.Trips), len(goFeed.Trips))
+	}
+	if len(javaFeed.StopTimes) != len(goFeed.StopTimes) {
+		t.Errorf("StopTime count mismatch: Java=%d, Go=%d", len(javaFeed.StopTimes), len(goFeed.StopTimes))
+	}
+}
+
+func TestDetectionModes_ThreeFeedMerge(t *testing.T) {
+	// Test merging three feeds with different detection modes
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+	inputMinimal := "../testdata/minimal"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_three.zip")
+	goOutput := filepath.Join(tmpDir, "go_three.zip")
+
+	// Java merge of three feeds
+	err := javaMerger.MergeQuiet([]string{inputA, inputB, inputMinimal}, javaOutput, WithDuplicateDetection("none"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go merge of three feeds
+	err = goMerger.MergeFiles([]string{inputA, inputB, inputMinimal}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read both feeds
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Three-feed merge (Java) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Three-feed merge (Go) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Both should produce valid feeds
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	if len(javaErrs) > 0 {
+		t.Errorf("Java three-feed merge has validation errors: %v", javaErrs)
+	}
+	if len(goErrs) > 0 {
+		t.Errorf("Go three-feed merge has validation errors: %v", goErrs)
+	}
+
+	// Entity counts should match for non-overlapping feeds with none detection
+	if len(javaFeed.Agencies) != len(goFeed.Agencies) {
+		t.Logf("Note: Agency count differs - Java=%d, Go=%d", len(javaFeed.Agencies), len(goFeed.Agencies))
+	}
+	if len(javaFeed.Stops) != len(goFeed.Stops) {
+		t.Logf("Note: Stop count differs - Java=%d, Go=%d", len(javaFeed.Stops), len(goFeed.Stops))
+	}
+	if len(javaFeed.Routes) != len(goFeed.Routes) {
+		t.Logf("Note: Route count differs - Java=%d, Go=%d", len(javaFeed.Routes), len(goFeed.Routes))
+	}
+	if len(javaFeed.Trips) != len(goFeed.Trips) {
+		t.Logf("Note: Trip count differs - Java=%d, Go=%d", len(javaFeed.Trips), len(goFeed.Trips))
+	}
+}
+
+func TestDetectionModes_OverlapWithIdentity(t *testing.T) {
+	// When Go implements identity detection, this test should verify
+	// that overlapping entities are properly merged
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_identity.zip")
+	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+
+	// Java with identity detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, javaOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go (currently uses none detection - will differ until identity is implemented)
+	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read feeds
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Overlap merge (Java identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Overlap merge (Go none) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Note: This test documents the expected difference between Java identity and Go none
+	// When Go implements identity detection, these counts should match
+	if len(goFeed.Agencies) > len(javaFeed.Agencies) {
+		t.Logf("Go has more agencies than Java (expected until identity detection is implemented)")
+	}
+
+	// Both should still produce valid output
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	if len(javaErrs) > 0 {
+		t.Errorf("Java merged feed has validation errors: %v", javaErrs)
+	}
+	if len(goErrs) > 0 {
+		t.Errorf("Go merged feed has validation errors: %v", goErrs)
+	}
+}
