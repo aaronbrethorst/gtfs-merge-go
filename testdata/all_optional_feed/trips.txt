@@ -1,0 +1,4 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,shape_id
+route_opt1,service_opt1,trip_opt1,East,0,shape_opt1
+route_opt1,service_opt1,trip_opt2,West,1,shape_opt2
+route_opt2,service_opt1,trip_opt3,Central,0,shape_opt1

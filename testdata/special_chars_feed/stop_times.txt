@@ -1,0 +1,7 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence
+trip.special.1,11:00:00,11:00:00,stop.with.dots,1
+trip.special.1,11:15:00,11:16:00,stop_with_underscores,2
+trip.special.1,11:30:00,11:30:00,stop-with-dashes,3
+trip.special.2,12:00:00,12:00:00,stop-with-dashes,1
+trip.special.2,12:15:00,12:16:00,stop_with_underscores,2
+trip.special.2,12:30:00,12:30:00,stop.with.dots,3

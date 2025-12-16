@@ -1,0 +1,2 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color
+route.special.1,agency-with-dashes,S1,Special Route One,3,FF00FF

@@ -1,0 +1,6 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type
+stop_u1,Hauptbahnhof Munchen,48.1402,11.5600,1
+stop_u2,Marienplatz Munchen,48.1371,11.5753,0
+stop_u3,Odeonsplatz Bayern,48.1424,11.5775,0
+stop_u4,Station Francaise,48.8566,2.3522,0
+stop_u5,Tokyo Shibuya,35.6580,139.7016,0

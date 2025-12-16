@@ -1,0 +1,8 @@
+shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence
+shape_opt1,34.0450,-118.2600,1
+shape_opt1,34.0500,-118.2500,2
+shape_opt1,34.0522,-118.2437,3
+shape_opt1,34.0600,-118.2300,4
+shape_opt2,34.0600,-118.2300,1
+shape_opt2,34.0522,-118.2437,2
+shape_opt2,34.0450,-118.2600,3

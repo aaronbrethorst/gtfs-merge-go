@@ -1,0 +1,5 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,zone_id
+stop_opt1,Central Station,34.0522,-118.2437,1,,zone_1
+stop_opt2,Platform A,34.0523,-118.2438,0,stop_opt1,zone_1
+stop_opt3,East Terminal,34.0600,-118.2300,1,,zone_2
+stop_opt4,West Hub,34.0450,-118.2600,1,,zone_1
