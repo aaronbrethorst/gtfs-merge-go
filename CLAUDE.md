@@ -17,7 +17,7 @@ go test ./gtfs/...
 go test ./merge/...
 go test ./compare/...
 
-# Run Java comparison tests (requires Java 11+)
+# Run Java comparison tests (requires Java 21+)
 ./testdata/java/download.sh  # Download JAR first
 go test -v -tags=java ./compare/...
 
@@ -59,10 +59,10 @@ The codebase follows a modular structure with clear separation of concerns:
   - `options.go` - Functional options pattern (WithDebug)
 
 - **`compare/`** - Java-Go comparison testing framework
-  - `java.go` - JavaMerger wrapper for invoking onebusaway-gtfs-merge-cli
+  - `java.go` - JavaMerger wrapper for invoking onebusaway-gtfs-merge-cli v11.2.0
   - `normalize.go` - CSV normalization for comparison (column order, row sorting, float precision)
   - `compare.go` - CompareGTFS() compares two GTFS outputs with detailed diff reporting
-  - Tests use `//go:build java` tag (skipped without Java, run in CI)
+  - Tests use `//go:build java` tag (skipped without Java 21+, run in CI)
 
 ### Planned Packages (see spec.md)
 
