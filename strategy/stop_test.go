@@ -498,3 +498,135 @@ func TestStopMergeFuzzyWithPrefix(t *testing.T) {
 		t.Errorf("Expected StopIDMapping[stop1] = a_stop1, got %q", ctx.StopIDMapping["stop1"])
 	}
 }
+
+// Concurrent fuzzy matching tests for Milestone 15
+
+func TestStopMergeFuzzyConcurrent(t *testing.T) {
+	// Given: stops with same name and nearby location, concurrent processing enabled
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+		ID:   "stop_a",
+		Name: "Downtown Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	target := gtfs.NewFeed()
+	// Add many stops to trigger concurrent processing
+	for i := 0; i < 150; i++ {
+		id := gtfs.StopID(string(rune('A'+i/10)) + string(rune('0'+i%10)))
+		target.Stops[id] = &gtfs.Stop{
+			ID:   id,
+			Name: "Other Station " + string(rune('A'+i)),
+			Lat:  41.0 + float64(i)*0.01,
+			Lon:  -75.0 + float64(i)*0.01,
+		}
+	}
+	// Add the matching stop
+	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+		ID:   "stop_b",
+		Name: "Downtown Station",
+		Lat:  40.7128, // Same location (0m apart)
+		Lon:  -74.0060,
+	}
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewStopMergeStrategy()
+	strategy.SetDuplicateDetection(DetectionFuzzy)
+	strategy.SetConcurrent(true)
+	strategy.Concurrent.MinItemsForConcurrency = 100 // Ensure concurrent is triggered
+
+	// When: merged with DetectionFuzzy and concurrent enabled
+	err := strategy.Merge(ctx)
+
+	// Then: detected as duplicates - source stop should map to target stop
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	// Source ID should map to target ID
+	if ctx.StopIDMapping["stop_a"] != "stop_b" {
+		t.Errorf("Expected StopIDMapping[stop_a] = stop_b, got %q", ctx.StopIDMapping["stop_a"])
+	}
+}
+
+func TestStopMergeFuzzyConcurrentCorrectness(t *testing.T) {
+	// Test that concurrent and sequential produce the same results
+	source := gtfs.NewFeed()
+	source.Stops[gtfs.StopID("stop_src")] = &gtfs.Stop{
+		ID:   "stop_src",
+		Name: "Test Station",
+		Lat:  40.7128,
+		Lon:  -74.0060,
+	}
+
+	// Create target with many stops and one matching
+	createTarget := func() *gtfs.Feed {
+		target := gtfs.NewFeed()
+		for i := 0; i < 200; i++ {
+			id := gtfs.StopID(string(rune('A'+i/26)) + string(rune('0'+i%26)))
+			target.Stops[id] = &gtfs.Stop{
+				ID:   id,
+				Name: "Different Station " + string(id),
+				Lat:  42.0 + float64(i)*0.001,
+				Lon:  -76.0 + float64(i)*0.001,
+			}
+		}
+		// Add matching stop
+		target.Stops[gtfs.StopID("target_match")] = &gtfs.Stop{
+			ID:   "target_match",
+			Name: "Test Station",
+			Lat:  40.7128,
+			Lon:  -74.0060,
+		}
+		return target
+	}
+
+	// Sequential test
+	targetSeq := createTarget()
+	ctxSeq := NewMergeContext(source, targetSeq, "")
+	strategySeq := NewStopMergeStrategy()
+	strategySeq.SetDuplicateDetection(DetectionFuzzy)
+	strategySeq.SetConcurrent(false)
+	if err := strategySeq.Merge(ctxSeq); err != nil {
+		t.Fatalf("Sequential merge failed: %v", err)
+	}
+
+	// Concurrent test
+	targetConc := createTarget()
+	ctxConc := NewMergeContext(source, targetConc, "")
+	strategyConc := NewStopMergeStrategy()
+	strategyConc.SetDuplicateDetection(DetectionFuzzy)
+	strategyConc.SetConcurrent(true)
+	strategyConc.Concurrent.MinItemsForConcurrency = 10 // Force concurrent
+	if err := strategyConc.Merge(ctxConc); err != nil {
+		t.Fatalf("Concurrent merge failed: %v", err)
+	}
+
+	// Both should have same mapping
+	if ctxSeq.StopIDMapping["stop_src"] != ctxConc.StopIDMapping["stop_src"] {
+		t.Errorf("Sequential result %q does not match concurrent result %q",
+			ctxSeq.StopIDMapping["stop_src"], ctxConc.StopIDMapping["stop_src"])
+	}
+}
+
+func TestStopMergeSetConcurrentWorkers(t *testing.T) {
+	strategy := NewStopMergeStrategy()
+
+	// Default workers should be runtime.NumCPU()
+	if strategy.Concurrent.NumWorkers <= 0 {
+		t.Error("Expected NumWorkers to be positive")
+	}
+
+	// Set workers
+	strategy.SetConcurrentWorkers(8)
+	if strategy.Concurrent.NumWorkers != 8 {
+		t.Errorf("Expected NumWorkers to be 8, got %d", strategy.Concurrent.NumWorkers)
+	}
+
+	// Invalid value should not change
+	strategy.SetConcurrentWorkers(-1)
+	if strategy.Concurrent.NumWorkers != 8 {
+		t.Errorf("Expected NumWorkers to remain 8, got %d", strategy.Concurrent.NumWorkers)
+	}
+}
