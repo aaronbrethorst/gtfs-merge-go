@@ -200,7 +200,7 @@ func readGTFSFiles(path string) (map[string][]byte, error) {
 	// Try to open as zip file
 	r, err := zip.OpenReader(path)
 	if err == nil {
-		defer r.Close()
+		defer func() { _ = r.Close() }()
 		return readFromZip(r)
 	}
 
@@ -232,7 +232,7 @@ func readFromZip(r *zip.ReadCloser) (map[string][]byte, error) {
 		}
 
 		content, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", f.Name, err)
 		}
