@@ -1873,6 +1873,7 @@ This section tracks completed milestones with feedback and notes.
 | 1.2 Define GTFS Entity Types | ✅ Complete | `a7c295a` | All 15 entity structs + 8 ID types, 16 tests passing |
 | 1.3 Define Feed Container | ✅ Complete | `9e2a22f` | Feed struct with maps/slices for all entities, NewFeed(), 16 new tests |
 | 2.1 CSV Reader Utility | ✅ Complete | `6576ff1` | CSVReader and CSVRow types, 15 tests for CSV parsing |
+| 2.2 Entity-Specific Parsers | ✅ Complete | `746684e` | Parse functions for all 15 GTFS entities, 18 new tests |
 
 ### Feedback & Notes
 
@@ -1921,3 +1922,14 @@ This section tracks completed milestones with feedback and notes.
 - Returns io.EOF when no more records (follows Go idioms)
 - 15 new tests covering edge cases identified in code review
 - Total: 47 tests passing with race detector
+
+#### Milestone 2.2 - Entity-Specific Parsers
+- Created `gtfs/parse.go` with 15 Parse functions (one per GTFS entity type)
+- Each function takes a CSVRow and returns the corresponding entity pointer
+- Functions: ParseAgency, ParseStop, ParseRoute, ParseTrip, ParseStopTime, ParseCalendar, ParseCalendarDate, ParseShapePoint, ParseFrequency, ParseTransfer, ParseFareAttribute, ParseFareRule, ParseFeedInfo, ParseArea, ParsePathway
+- All column names follow GTFS specification precisely
+- Type conversions handled via CSVRow methods (Get, GetInt, GetFloat, GetBool)
+- TDD approach: wrote 18 tests first, then implemented parse functions
+- Tests cover: all entity types, minimal fields, parent station references, time formats > 24:00:00, exception types, etc.
+- Code review grade: A (Excellent) - no blockers, all field mappings verified correct
+- Total: 65 tests passing with race detector
