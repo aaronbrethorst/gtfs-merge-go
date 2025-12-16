@@ -9,17 +9,12 @@ This is a Go port of [onebusaway-gtfs-merge](https://github.com/OneBusAway/onebu
 ## Build Commands
 
 ```bash
-# Initialize module (when starting)
-go mod init github.com/aaronbrethorst/gtfs-merge-go
-
 # Run all tests
 go test ./...
 
 # Run tests for a specific package
 go test ./gtfs/...
 go test ./merge/...
-go test ./strategy/...
-go test ./scoring/...
 
 # Run a single test
 go test -run TestMergeTwoSimpleFeeds ./merge/...
@@ -27,43 +22,41 @@ go test -run TestMergeTwoSimpleFeeds ./merge/...
 # Run tests with verbose output
 go test -v ./...
 
+# Run tests with race detector (matches CI)
+go test -v -race ./...
+
 # Run benchmarks
 go test -bench=. ./...
 
-# Build CLI
-go build -o gtfs-merge ./cmd/gtfs-merge
-
-# Run CLI
-./gtfs-merge feed1.zip feed2.zip merged.zip
+# CLI (planned - milestone 13)
+# go build -o gtfs-merge ./cmd/gtfs-merge
+# ./gtfs-merge feed1.zip feed2.zip merged.zip
 ```
 
 ## Architecture
 
 The codebase follows a modular structure with clear separation of concerns:
 
-### Package Structure
+### Package Structure (Current)
 
 - **`gtfs/`** - GTFS data model and I/O
-  - Entity structs (Agency, Stop, Route, Trip, StopTime, Calendar, etc.)
-  - Feed container holding all entities with maps for O(1) lookup
-  - CSV parsing/writing utilities
-  - Zip/directory reader and writer
+  - `model.go` - Entity structs (Agency, Stop, Route, Trip, StopTime, Calendar, etc.) with typed IDs
+  - `feed.go` - Feed container holding all entities with maps for O(1) lookup
+  - `csv.go` - CSVReader/CSVRow for parsing with UTF-8 BOM handling and type conversions
+  - `csv_writer.go` - CSVWriter for output
+  - `parse.go` - Entity-specific parse functions (ParseAgency, ParseStop, etc.)
+  - `reader.go` - ReadFromPath() auto-detects zip vs directory, ReadFromZip() for io.ReaderAt
+  - `writer.go` - WriteToPath() and WriteToZip() for complete feeds
 
 - **`merge/`** - Core merge orchestration
-  - `Merger` - main orchestrator that processes feeds in dependency order
-  - `MergeContext` - tracks source/target feeds, ID mappings, and prefix
-  - Functional options pattern for configuration
+  - `merger.go` - Merger with MergeFiles() and MergeFeeds(), processes feeds in reverse order
+  - `context.go` - MergeContext tracks source/target feeds, ID mappings for all entity types, and prefix
+  - `options.go` - Functional options pattern (WithDebug)
 
-- **`strategy/`** - Entity-specific merge strategies
-  - `EntityMergeStrategy` interface with `Merge()`, duplicate detection/logging/renaming configuration
-  - One strategy per entity type (AgencyMergeStrategy, StopMergeStrategy, etc.)
-  - Three detection modes: None, Identity (same ID), Fuzzy (similar properties)
+### Planned Packages (see spec.md)
 
-- **`scoring/`** - Duplicate similarity scoring
-  - `Scorer[T]` generic interface returning 0.0-1.0 similarity
-  - `PropertyMatcher`, `AndScorer` for combining scorers
-  - Specialized scorers: StopDistanceScorer (geographic), RouteStopsInCommonScorer, TripScheduleOverlapScorer
-
+- **`strategy/`** - Entity-specific merge strategies with duplicate detection
+- **`scoring/`** - Duplicate similarity scoring for fuzzy matching
 - **`cmd/gtfs-merge/`** - CLI application
 
 ### Entity Processing Order
@@ -82,9 +75,10 @@ Entities are merged in dependency order to maintain referential integrity:
 
 ### Key Design Patterns
 
-- **Duplicate Detection**: Three modes - `DetectionNone` (always add), `DetectionIdentity` (same ID), `DetectionFuzzy` (property similarity)
-- **ID Prefixing**: When IDs collide, feeds get prefixes (a_, b_, c_) applied to all entities and references
-- **Functional Options**: `merge.New(WithDebug(true), WithDefaultDetection(DetectionFuzzy))`
+- **Reverse Processing Order**: Feeds are processed in reverse order (last feed first). The last feed gets no prefix, earlier feeds get prefixes (a_, b_, c_, etc.). This ensures newer data takes precedence.
+- **ID Prefixing**: When IDs collide, earlier feeds get prefixes applied to all entities and references. Prefixes: "" (last feed), "a_" (second-to-last), "b_", ..., "z_", then "00_", "01_", etc.
+- **Duplicate Detection** (planned): Three modes - `DetectionNone` (always add), `DetectionIdentity` (same ID), `DetectionFuzzy` (property similarity)
+- **Functional Options**: `merge.New(WithDebug(true))`
 
 ## Development Approach
 
@@ -106,7 +100,7 @@ This project follows a milestone-driven development process defined in `spec.md`
 2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
 3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
 
-**Current Status** (check spec.md for latest): Milestone 1 (Project Setup and GTFS Model) is complete. Next milestone is **2.1 CSV Reader Utility**.
+**Current Status** (check spec.md for latest): Milestones 1-5 are complete. The project has a working merge capability. Next milestone is **6: Feed Validation**.
 
 ### QA Process (Milestone 1.1.2)
 
