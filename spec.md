@@ -1872,6 +1872,7 @@ This section tracks completed milestones with feedback and notes.
 | 1.1.2 Quality Assurance Process | ✅ Complete | `1852d40` | Defined 5-step QA process, added milestone tracking section |
 | 1.2 Define GTFS Entity Types | ✅ Complete | `a7c295a` | All 15 entity structs + 8 ID types, 16 tests passing |
 | 1.3 Define Feed Container | ✅ Complete | `9e2a22f` | Feed struct with maps/slices for all entities, NewFeed(), 16 new tests |
+| 2.1 CSV Reader Utility | ✅ Complete | `6576ff1` | CSVReader and CSVRow types, 15 tests for CSV parsing |
 
 ### Feedback & Notes
 
@@ -1904,3 +1905,19 @@ This section tracks completed milestones with feedback and notes.
 - NewFeed() initializes all maps and slices to avoid nil pointer issues
 - 16 new tests verify all entity types can be added to feed
 - Total: 32 tests passing with race detector
+
+#### Milestone 2.1 - CSV Reader Utility
+- Created `gtfs/csv.go` with CSVReader and CSVRow types
+- CSVReader wraps standard csv.Reader with GTFS-specific handling:
+  - UTF-8 BOM stripping from first field
+  - Whitespace trimming from header column names
+  - Empty line/trailing newline skipping
+  - Protection against calling ReadRecord before ReadHeader
+- CSVRow provides convenient field access by column name with type conversions:
+  - Get(column) - returns string, empty for missing fields
+  - GetInt(column) - returns int, 0 for invalid/missing
+  - GetFloat(column) - returns float64, 0.0 for invalid/missing
+  - GetBool(column) - returns bool, true for "1" or "true"
+- Returns io.EOF when no more records (follows Go idioms)
+- 15 new tests covering edge cases identified in code review
+- Total: 47 tests passing with race detector
