@@ -15,6 +15,11 @@ go test ./...
 # Run tests for a specific package
 go test ./gtfs/...
 go test ./merge/...
+go test ./compare/...
+
+# Run Java comparison tests (requires Java 11+)
+./testdata/java/download.sh  # Download JAR first
+go test -v -tags=java ./compare/...
 
 # Run a single test
 go test -run TestMergeTwoSimpleFeeds ./merge/...
@@ -52,6 +57,12 @@ The codebase follows a modular structure with clear separation of concerns:
   - `merger.go` - Merger with MergeFiles() and MergeFeeds(), processes feeds in reverse order
   - `context.go` - MergeContext tracks source/target feeds, ID mappings for all entity types, and prefix
   - `options.go` - Functional options pattern (WithDebug)
+
+- **`compare/`** - Java-Go comparison testing framework
+  - `java.go` - JavaMerger wrapper for invoking onebusaway-gtfs-merge-cli
+  - `normalize.go` - CSV normalization for comparison (column order, row sorting, float precision)
+  - `compare.go` - CompareGTFS() compares two GTFS outputs with detailed diff reporting
+  - Tests use `//go:build java` tag (skipped without Java, run in CI)
 
 ### Planned Packages (see spec.md)
 
@@ -100,7 +111,7 @@ This project follows a milestone-driven development process defined in `spec.md`
 2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
 3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
 
-**Current Status** (check spec.md for latest): Milestones 1-5 are complete. The project has a working merge capability. Next milestone is **6: Feed Validation**.
+**Current Status** (check spec.md for latest): Milestones 1-5.5 are complete. The project has a working merge capability with Java comparison testing. Next milestone is **6: Feed Validation**.
 
 ### QA Process (Milestone 1.1.2)
 

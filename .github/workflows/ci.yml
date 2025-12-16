@@ -53,3 +53,29 @@ jobs:
           go-version: '1.22'
       - name: Run go vet
         run: go vet ./...
+
+  compare-java:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Java GTFS Merge CLI
+        uses: actions/cache@v4
+        with:
+          path: testdata/java/onebusaway-gtfs-merge-cli*.jar
+          key: gtfs-merge-cli-v2.0.0
+
+      - name: Download JAR if not cached
+        run: ./testdata/java/download.sh
+
+      - name: Run Java comparison tests
+        run: go test -v -tags=java ./compare/...

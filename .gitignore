@@ -1,1 +1,7 @@
 .claude/settings.local.json
+
+# Java tool for comparison tests (downloaded, not committed)
+testdata/java/*.jar
+
+# Real-world GTFS feeds (downloaded, not committed)
+testdata/realworld/*.zip

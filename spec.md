@@ -1362,6 +1362,70 @@ func TestMergePrefixSequence(t *testing.T) {
 
 ---
 
+### Milestone 5.5: Java-Go Comparison Testing Framework
+
+**Goal**: Establish a comparison testing framework to validate the Go implementation produces output equivalent to the original Java onebusaway-gtfs-merge tool.
+
+#### 5.5.1 Java Tool Integration (TDD)
+
+**Tests to write first** (`compare/java_test.go`):
+```go
+//go:build java
+
+func TestJavaToolExists(t *testing.T)           // JAR file exists at expected path
+func TestJavaToolMerge(t *testing.T)            // Basic merge produces valid output
+func TestJavaToolMergeWithDetection(t *testing.T) // Detection modes work
+func TestJavaToolMergeMultipleFeeds(t *testing.T) // Three-feed merge works
+```
+
+**Implementation**:
+- Create `testdata/java/download.sh` to download JAR from Maven Central
+- Create `compare/java.go` with `JavaMerger` struct and `Merge()` method
+
+#### 5.5.2 CSV Normalization Utilities (TDD)
+
+**Tests to write first** (`compare/normalize_test.go`):
+```go
+func TestNormalizeRowOrder(t *testing.T)        // Sort rows by primary key
+func TestNormalizeColumnOrder(t *testing.T)     // Reorder to canonical GTFS order
+func TestNormalizeFloatPrecision(t *testing.T)  // Normalize to 6 decimal places
+func TestNormalizeEmptyFields(t *testing.T)     // Treat empty and missing as equivalent
+func TestNormalizeWhitespace(t *testing.T)      // Normalize line endings and trim
+func TestNormalizeAgencyTxt(t *testing.T)       // File-specific normalization
+func TestNormalizeStopsTxt(t *testing.T)
+func TestNormalizeStopTimesTxt(t *testing.T)    // Composite key sorting
+func TestPrimaryKey(t *testing.T)               // Primary key definitions
+func TestGTFSColumnOrder(t *testing.T)          // Canonical column orders
+func TestStripUTF8BOM(t *testing.T)             // BOM removal
+```
+
+**Implementation**: Create `compare/normalize.go` with `NormalizeCSV()`, `PrimaryKey()`, `GTFSColumnOrder()`.
+
+#### 5.5.3 Comparison Framework (TDD)
+
+**Tests to write first** (`compare/compare_test.go`):
+```go
+//go:build java
+
+func TestCompare_IdenticalFeeds(t *testing.T)       // Sanity check - same inputs match
+func TestCompare_SimpleMergeNoOverlap(t *testing.T) // simple_a + simple_b
+func TestCompare_SimpleMergeWithPrefixing(t *testing.T) // With ID collisions
+func TestCompare_MinimalFeed(t *testing.T)          // Minimal feed merge
+func TestCompare_EntityCounts(t *testing.T)         // Entity count comparison
+```
+
+**Implementation**: Create `compare/compare.go` with `CompareGTFS()`, `CompareCSV()`, `DiffResult` struct.
+
+#### 5.5.4 CI Integration
+
+- Add `compare-java` job to `.github/workflows/ci.yml`
+- Setup: Go 1.22, Java 17 (Temurin), cache JAR
+- Run: `go test -v -tags=java ./compare/...`
+
+**Note**: Tests with `//go:build java` tag are skipped when Java is not available. CI runs them with `-tags=java`.
+
+---
+
 ### Milestone 6: Feed Validation
 
 **Goal**: Validate feeds for GTFS compliance and referential integrity.
@@ -1844,6 +1908,7 @@ func TestConcurrentScoringPerformance(t *testing.T)
 | 3 | GTFS Reader | Read from zip/directory |
 | 4 | GTFS Writer | Write to zip file |
 | **5** | **Simple Merge** | **Merge two feeds with no duplicates** |
+| **5.5** | **Java Comparison** | **Validate Go output matches Java tool** |
 | 6 | Validation | Referential integrity checks |
 | 7 | Strategy Interface | Base strategy implementation |
 | 8 | Identity Detection | Detect duplicates by ID |
@@ -1882,6 +1947,10 @@ This section tracks completed milestones with feedback and notes.
 | 5.1 Merge Context | ✅ Complete | `0383cdb` | MergeContext struct with ID mappings, GetPrefixForIndex(), 5 tests |
 | 5.2 Basic Merger | ✅ Complete | `0383cdb` | Merger with MergeFiles() and MergeFeeds(), 12 tests |
 | 5.3 ID Prefixing | ✅ Complete | `0383cdb` | Feeds processed in reverse order with a_, b_, c_ prefixes, 4 tests |
+| 5.5.1 Java Tool Integration | ✅ Complete | `dcce2dc` | JavaMerger wrapper, download script, 4 tests |
+| 5.5.2 CSV Normalization | ✅ Complete | `dcce2dc` | NormalizeCSV(), PrimaryKey(), GTFSColumnOrder(), 11 tests |
+| 5.5.3 Comparison Framework | ✅ Complete | `dcce2dc` | CompareGTFS(), CompareCSV(), DiffResult, 6 tests |
+| 5.5.4 CI Integration | ✅ Complete | `dcce2dc` | Added compare-java job to CI workflow |
 
 ### Feedback & Notes
 
@@ -2007,3 +2076,24 @@ This section tracks completed milestones with feedback and notes.
   - Three-feed merge with correct prefix sequence
 - All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
 - Total: 110 tests passing with race detector
+
+#### Milestone 5.5 - Java-Go Comparison Testing Framework
+- Created new `compare/` package with Java tool integration and GTFS comparison utilities
+- **Java Tool Integration** (`compare/java.go`):
+  - `JavaMerger` struct wraps the onebusaway-gtfs-merge-cli JAR
+  - Downloads JAR v2.0.0 from Maven Central via `testdata/java/download.sh`
+  - Supports `--duplicateDetection` option
+  - Tests use `//go:build java` tag to skip when Java not available
+- **CSV Normalization** (`compare/normalize.go`):
+  - `NormalizeCSV()` normalizes GTFS files for comparison
+  - Handles: column reordering, row sorting by primary key, float precision, BOM stripping, whitespace
+  - `PrimaryKey()` and `GTFSColumnOrder()` define canonical GTFS structures
+- **Comparison Framework** (`compare/compare.go`):
+  - `CompareGTFS()` compares two GTFS zip files
+  - Normalizes both outputs before comparing
+  - Returns `DiffResult` with detailed differences
+- **CI Integration**:
+  - Added `compare-java` job to CI workflow
+  - Sets up Java 17 (Temurin), caches JAR, runs comparison tests
+- Tests: 11 normalization tests (always run) + 6 comparison tests (require Java)
+- Total test count: 121 tests (without Java tag)
