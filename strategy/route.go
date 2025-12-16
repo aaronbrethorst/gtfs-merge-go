@@ -32,9 +32,10 @@ func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.RouteIDMapping[route.ID] = existing.ID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate route detected with ID %q (keeping existing)", route.ID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate route detected with ID %q", route.ID)
 				}
 
@@ -49,9 +50,10 @@ func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
 				// Fuzzy duplicate detected - map source ID to existing target ID
 				ctx.RouteIDMapping[route.ID] = matchID
 
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Fuzzy duplicate route detected: %q matches %q (keeping existing)", route.ID, matchID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("fuzzy duplicate route detected: %q matches %q", route.ID, matchID)
 				}
 

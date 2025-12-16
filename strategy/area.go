@@ -29,9 +29,10 @@ func (s *AreaMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.AreaIDMapping[area.ID] = existing.ID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate area detected with ID %q (keeping existing)", area.ID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate area detected with ID %q", area.ID)
 				}
 

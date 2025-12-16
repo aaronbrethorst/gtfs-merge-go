@@ -29,9 +29,10 @@ func (s *AgencyMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.AgencyIDMapping[agency.ID] = existing.ID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate agency detected with ID %q (keeping existing)", agency.ID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate agency detected with ID %q", agency.ID)
 				}
 

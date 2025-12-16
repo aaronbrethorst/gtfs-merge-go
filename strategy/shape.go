@@ -29,9 +29,10 @@ func (s *ShapeMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.ShapeIDMapping[shapeID] = shapeID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate shape detected with ID %q (keeping existing)", shapeID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate shape detected with ID %q", shapeID)
 				}
 

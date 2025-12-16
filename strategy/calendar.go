@@ -34,9 +34,10 @@ func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.ServiceIDMapping[cal.ServiceID] = existing.ServiceID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate calendar detected with service_id %q (keeping existing)", cal.ServiceID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate calendar detected with service_id %q", cal.ServiceID)
 				}
 
@@ -51,9 +52,10 @@ func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
 				// Fuzzy duplicate detected - map source ID to existing target ID
 				ctx.ServiceIDMapping[cal.ServiceID] = matchID
 
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Fuzzy duplicate calendar detected: %q matches %q (keeping existing)", cal.ServiceID, matchID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("fuzzy duplicate calendar detected: %q matches %q", cal.ServiceID, matchID)
 				}
 
@@ -209,9 +211,10 @@ func (s *CalendarDateMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 
 			if isDuplicate {
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate calendar_date detected for service_id %q date %q (keeping existing)", serviceID, date.Date)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate calendar_date detected for service_id %q date %q", serviceID, date.Date)
 				}
 				continue

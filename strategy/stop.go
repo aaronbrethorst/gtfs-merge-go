@@ -33,9 +33,10 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 				ctx.StopIDMapping[stop.ID] = existing.ID
 
 				// Handle logging based on configuration
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Duplicate stop detected with ID %q (keeping existing)", stop.ID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("duplicate stop detected with ID %q", stop.ID)
 				}
 
@@ -50,9 +51,10 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 				// Fuzzy duplicate detected - map source ID to existing target ID
 				ctx.StopIDMapping[stop.ID] = matchID
 
-				if s.DuplicateLogging == LogWarning {
+				switch s.DuplicateLogging {
+				case LogWarning:
 					log.Printf("WARNING: Fuzzy duplicate stop detected: %q matches %q (keeping existing)", stop.ID, matchID)
-				} else if s.DuplicateLogging == LogError {
+				case LogError:
 					return fmt.Errorf("fuzzy duplicate stop detected: %q matches %q", stop.ID, matchID)
 				}
 
