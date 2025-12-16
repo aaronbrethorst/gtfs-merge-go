@@ -1,0 +1,2 @@
+route_id,agency_id,route_short_name,route_long_name,route_type
+route_b1,agency_b1,B1,North-South Line,1

@@ -1874,6 +1874,9 @@ This section tracks completed milestones with feedback and notes.
 | 1.3 Define Feed Container | ✅ Complete | `9e2a22f` | Feed struct with maps/slices for all entities, NewFeed(), 16 new tests |
 | 2.1 CSV Reader Utility | ✅ Complete | `6576ff1` | CSVReader and CSVRow types, 15 tests for CSV parsing |
 | 2.2 Entity-Specific Parsers | ✅ Complete | `746684e` | Parse functions for all 15 GTFS entities, 18 new tests |
+| 3.1 Create Test Fixtures | ✅ Complete | `c59dcb0` | Created 4 test feeds in testdata/ directory |
+| 3.2 Directory Reader | ✅ Complete | `c59dcb0` | ReadFromPath() for directory input, 6 tests |
+| 3.3 Zip Reader | ✅ Complete | `c59dcb0` | ReadFromZip() for zip input, handles nested directories, 5 tests |
 
 ### Feedback & Notes
 
@@ -1933,3 +1936,20 @@ This section tracks completed milestones with feedback and notes.
 - Tests cover: all entity types, minimal fields, parent station references, time formats > 24:00:00, exception types, etc.
 - Code review grade: A (Excellent) - no blockers, all field mappings verified correct
 - Total: 65 tests passing with race detector
+
+#### Milestone 3 - GTFS Reader (Zip/Directory)
+- Created 4 test fixtures in `testdata/`:
+  - `minimal/` - bare minimum valid feed (1 agency, 1 stop, 1 route, 1 trip)
+  - `simple_a/` - larger feed (2 agencies, 5 stops, 2 routes, 4 trips)
+  - `simple_b/` - different feed with no ID overlap (1 agency, 3 stops, 1 route, 2 trips)
+  - `overlap/` - feed with IDs that collide with simple_a (for future merge testing)
+- Created `gtfs/reader.go` with:
+  - `ReadFromPath()` - auto-detects directory vs zip file
+  - `ReadFromZip()` - reads from io.ReaderAt for programmatic access
+  - Validates required GTFS files and at least one calendar file
+  - Handles nested directories in zip files (common in real-world feeds)
+  - Uses opener pattern for code reuse between directory/zip reading
+- Changed CSV reader to use strict quote handling (LazyQuotes=false) to properly detect malformed CSV
+- TDD approach: wrote 11 new reader tests, then implemented
+- All linter issues fixed (errcheck for defer Close() calls)
+- Total: 77 tests passing with race detector

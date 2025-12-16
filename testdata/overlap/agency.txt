@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone
+agency_a1,Different Transit A1,http://different-a1.example.com,America/Denver

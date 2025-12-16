@@ -18,9 +18,9 @@ type CSVReader struct {
 // NewCSVReader creates a new CSVReader from an io.Reader.
 func NewCSVReader(r io.Reader) *CSVReader {
 	csvReader := csv.NewReader(r)
-	csvReader.FieldsPerRecord = -1 // Allow variable number of fields
-	csvReader.LazyQuotes = true    // Be lenient with quote handling
-	csvReader.TrimLeadingSpace = true
+	csvReader.FieldsPerRecord = -1    // Allow variable number of fields
+	csvReader.TrimLeadingSpace = true // Trim leading whitespace
+	// Note: LazyQuotes is false (default) to properly detect malformed CSV
 	return &CSVReader{
 		reader: csvReader,
 	}

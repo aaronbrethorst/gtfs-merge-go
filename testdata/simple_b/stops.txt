@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon
+stop_b1,North Station,41.8781,-87.6298
+stop_b2,Central Hub,41.8819,-87.6278
+stop_b3,South Terminal,41.8650,-87.6250

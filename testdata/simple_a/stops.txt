@@ -1,0 +1,6 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type
+stop_a1,Downtown Station,40.7128,-74.0060,1
+stop_a2,Midtown Stop,40.7580,-73.9855,0
+stop_a3,Uptown Terminal,40.7831,-73.9712,1
+stop_a4,East Side Stop,40.7614,-73.9776,0
+stop_a5,West Side Stop,40.7580,-73.9920,0
