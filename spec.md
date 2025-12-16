@@ -1955,6 +1955,8 @@ This section tracks completed milestones with feedback and notes.
 | 6.2 Required Field Validation | ✅ Complete | `aca9ebc` | Required field checks for agency, stop, route, trip, stop_time, calendar, 6 tests |
 | 7.1 Strategy Interface | ✅ Complete | `a53053c` | EntityMergeStrategy interface, MergeContext, BaseStrategy with default implementations, 11 tests |
 | 7.2 Detection/Logging/Renaming Enums | ✅ Complete | `a53053c` | DuplicateDetection, DuplicateLogging, RenamingStrategy enums with String() and Parse methods, 7 tests |
+| 8.1-8.7 Identity-Based Duplicate Detection | ✅ Complete | `afd0146` | All entity strategies with identity detection, 45+ strategy tests, 5 Java integration tests |
+| 9.1-9.5 Duplicate Scoring Infrastructure | ✅ Complete | - | `scoring/` package with Scorer interface, PropertyMatcher, AndScorer, specialized scorers, 55 tests |
 
 ### Feedback & Notes
 
@@ -2188,3 +2190,26 @@ This section tracks completed milestones with feedback and notes.
   - Correctly map ID references to downstream entities
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 198+ tests (without Java tag)
+
+#### Milestone 9 - Duplicate Scoring Infrastructure
+- Created new `scoring/` package with duplicate similarity scoring framework
+- **Core Scorer Types** (`scoring/scorer.go`):
+  - `Scorer[T]` generic interface for entity scoring
+  - `PropertyMatcher[T]` - scores based on matching property values
+  - `AndScorer[T]` - combines multiple scorers using multiplication with early exit
+  - `ElementOverlapScore()` - calculates overlap score for sets (common/a + common/b) / 2
+  - `IntervalOverlapScore()` - calculates overlap score for intervals
+- **Specialized Scorers**:
+  - `StopDistanceScorer` - scores stops by geographic proximity using Haversine formula
+    - < 50m → 1.0, < 100m → 0.75, < 500m → 0.5, >= 500m → 0.0
+  - `RouteStopsInCommonScorer` - scores routes by shared stops across all trips
+  - `TripStopsInCommonScorer` - scores trips by shared stops
+  - `TripScheduleOverlapScorer` - scores trips by time window overlap
+  - `ServiceDateOverlapScorer` - scores service calendars by date range overlap
+- **Helper Functions**:
+  - `haversineDistance()` - great-circle distance calculation
+  - `parseGTFSTime()` - parses GTFS time strings (handles > 24:00:00)
+  - `parseGTFSDate()` - parses GTFS date strings (YYYYMMDD)
+- TDD approach: wrote 55 new tests, then implemented
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 269 tests (without Java tag)
