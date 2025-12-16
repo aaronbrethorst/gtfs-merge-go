@@ -992,6 +992,70 @@ All milestones follow **Test-Driven Development (TDD)**:
 go mod init github.com/aaronbrethorst/gtfs-merge-go
 ```
 
+#### 1.1.1 Set Up GitHub Actions CI
+
+Create `.github/workflows/ci.yml` to run continuous integration on every push and pull request:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run tests
+        run: go test -v -race ./...
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Go files are not formatted:"
+            gofmt -d .
+            exit 1
+          fi
+
+  vet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run go vet
+        run: go vet ./...
+```
+
+All CI checks must pass before merging pull requests.
+
 #### 1.2 Define GTFS Entity Types (TDD)
 
 **Tests to write first** (`gtfs/model_test.go`):
