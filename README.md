@@ -42,7 +42,7 @@ go test ./compare/...
 The integration tests compare the Go implementation's output against the original Java [onebusaway-gtfs-merge-cli](https://github.com/OneBusAway/onebusaway-gtfs-modules/tree/main/onebusaway-gtfs-merge-cli) tool to ensure compatibility.
 
 **Requirements:**
-- Java 11 or later (Java 17 recommended)
+- Java 21 or later
 
 **Check if Java is installed:**
 
@@ -52,8 +52,8 @@ java -version
 
 If Java is not installed:
 - **Using mise** (recommended): `mise install` (uses `mise.toml` in this repo)
-- **macOS**: `brew install openjdk@17` or download from [Adoptium](https://adoptium.net/)
-- **Ubuntu/Debian**: `sudo apt install openjdk-17-jdk`
+- **macOS**: `brew install openjdk@21` or download from [Adoptium](https://adoptium.net/)
+- **Ubuntu/Debian**: `sudo apt install openjdk-21-jdk`
 - **Windows**: Download from [Adoptium](https://adoptium.net/)
 
 **Setup:**
@@ -70,7 +70,7 @@ If Java is not installed:
 go test -v -tags=java ./compare/...
 ```
 
-**Note:** If Java is not installed, the integration tests will be **skipped** (not failed). The CI pipeline runs these tests automatically with Java 17.
+**Note:** If Java is not installed, the integration tests will be **skipped** (not failed). The CI pipeline runs these tests automatically with Java 21.
 
 The integration tests use a `//go:build java` tag, so they are excluded by default when running `go test ./...`. This allows development without Java installed.
 

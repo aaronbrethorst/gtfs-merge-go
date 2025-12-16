@@ -14,7 +14,7 @@ This downloads the JAR from Maven Central and creates a symlink `onebusaway-gtfs
 
 ### Requirements
 
-- Java 11 or later (Java 17 recommended)
+- Java 21 or later
 - curl (for downloading)
 
 ## Usage
@@ -42,7 +42,7 @@ java -jar onebusaway-gtfs-merge-cli.jar \
 
 ## Version
 
-Current version: 2.0.0
+Current version: 11.2.0
 
 To update, modify the `VERSION` variable in `download.sh` and re-run.
 

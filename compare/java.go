@@ -81,6 +81,7 @@ func (j *JavaMerger) buildArgs(inputs []string, output string, opts ...JavaOptio
 	args := []string{
 		"-Xmx" + j.MaxMemory,
 		"-jar", j.JARPath,
+		"--file=stops.txt", // Required by v11.2.0+ CLI to avoid NullPointerException
 	}
 
 	if cfg.duplicateDetection != "" {

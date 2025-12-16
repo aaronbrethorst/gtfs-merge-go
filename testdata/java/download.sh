@@ -4,7 +4,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="11.2.0"
 JAR_NAME="onebusaway-gtfs-merge-cli-${VERSION}.jar"
 JAR_PATH="$(dirname "$0")/${JAR_NAME}"
 SYMLINK_PATH="$(dirname "$0")/onebusaway-gtfs-merge-cli.jar"
