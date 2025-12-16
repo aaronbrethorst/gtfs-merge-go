@@ -1461,3 +1461,340 @@ func TestAutoDetection_FuzzySimilarFeeds(t *testing.T) {
 		t.Log("Auto-detect merge passes validation")
 	}
 }
+
+// ============================================================================
+// Configuration Options Integration Tests (Milestone 12)
+// ============================================================================
+
+func TestConfigOptions_GoDebugModeProducesValidOutput(t *testing.T) {
+	// Verify that Go's debug mode still produces valid output
+	goMerger := merge.New(merge.WithDebug(true))
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_debug.zip")
+
+	err := goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go debug merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go debug merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go debug merged feed passes validation")
+	}
+}
+
+func TestConfigOptions_CompareGoOptionsWithJava(t *testing.T) {
+	// Compare Go with various options vs Java's default behavior
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_merged.zip")
+
+	// Java default merge
+	err := javaMerger.MergeQuiet([]string{inputA, inputB}, javaOutput)
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	// Test Go with different options
+	configs := []struct {
+		name    string
+		opts    []merge.Option
+		outFile string
+	}{
+		{
+			"Go default",
+			nil,
+			"go_default.zip",
+		},
+		{
+			"Go with debug",
+			[]merge.Option{merge.WithDebug(true)},
+			"go_debug.zip",
+		},
+		{
+			"Go with none detection",
+			[]merge.Option{merge.WithDefaultDetection(strategy.DetectionNone)},
+			"go_none.zip",
+		},
+		{
+			"Go with identity detection",
+			[]merge.Option{merge.WithDefaultDetection(strategy.DetectionIdentity)},
+			"go_identity.zip",
+		},
+	}
+
+	for _, cfg := range configs {
+		t.Run(cfg.name, func(t *testing.T) {
+			goMerger := merge.New(cfg.opts...)
+			goOutput := filepath.Join(tmpDir, cfg.outFile)
+
+			err := goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+			if err != nil {
+				t.Fatalf("%s merge failed: %v", cfg.name, err)
+			}
+
+			goFeed, err := gtfs.ReadFromPath(goOutput)
+			if err != nil {
+				t.Fatalf("Failed to read %s output: %v", cfg.name, err)
+			}
+
+			// Log comparison with Java
+			t.Logf("%s - Agencies: %d (Java: %d), Stops: %d (Java: %d), Routes: %d (Java: %d)",
+				cfg.name,
+				len(goFeed.Agencies), len(javaFeed.Agencies),
+				len(goFeed.Stops), len(javaFeed.Stops),
+				len(goFeed.Routes), len(javaFeed.Routes))
+
+			// Validate Go output
+			errs := goFeed.Validate()
+			if len(errs) > 0 {
+				t.Errorf("%s has validation errors:", cfg.name)
+				for _, e := range errs {
+					t.Errorf("  - %v", e)
+				}
+			}
+		})
+	}
+}
+
+func TestConfigOptions_PerStrategyConfiguration(t *testing.T) {
+	// Test that per-strategy configuration produces valid output
+	goMerger := merge.New()
+
+	// Set specific strategies with different detection modes
+	agencyStrategy := strategy.NewAgencyMergeStrategy()
+	agencyStrategy.SetDuplicateDetection(strategy.DetectionIdentity)
+	goMerger.SetAgencyStrategy(agencyStrategy)
+
+	stopStrategy := strategy.NewStopMergeStrategy()
+	stopStrategy.SetDuplicateDetection(strategy.DetectionFuzzy)
+	goMerger.SetStopStrategy(stopStrategy)
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_mixed_strategy.zip")
+
+	err := goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go mixed strategy merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Mixed strategy merge - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go mixed strategy merged feed has validation errors:")
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go mixed strategy merged feed passes validation")
+	}
+}
+
+func TestConfigOptions_JavaVsGoIdentityDetection(t *testing.T) {
+	// Compare Java identity detection vs Go identity detection with overlap feeds
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New(merge.WithDefaultDetection(strategy.DetectionIdentity))
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_identity.zip")
+	goOutput := filepath.Join(tmpDir, "go_identity.zip")
+
+	// Java with identity detection
+	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, javaOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go with identity detection
+	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read both feeds
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Java identity - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Go identity - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Both should produce valid feeds
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	if len(javaErrs) > 0 {
+		t.Errorf("Java identity merged feed has validation errors: %v", javaErrs)
+	}
+	if len(goErrs) > 0 {
+		t.Errorf("Go identity merged feed has validation errors: %v", goErrs)
+	}
+
+	if len(javaErrs) == 0 && len(goErrs) == 0 {
+		t.Log("Both identity merged feeds pass validation!")
+	}
+}
+
+func TestConfigOptions_CombinedOptionsWithJava(t *testing.T) {
+	// Test Go with combined options vs Java
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New(
+		merge.WithDebug(true),
+		merge.WithDefaultDetection(strategy.DetectionIdentity),
+		merge.WithDefaultLogging(strategy.LogWarning),
+	)
+
+	inputs := []string{
+		"../testdata/simple_a",
+		"../testdata/simple_b",
+		"../testdata/minimal",
+	}
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_three.zip")
+	goOutput := filepath.Join(tmpDir, "go_combined.zip")
+
+	// Java merge
+	err := javaMerger.MergeQuiet(inputs, javaOutput, WithDuplicateDetection("identity"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Go merge with combined options
+	err = goMerger.MergeFiles(inputs, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read both feeds
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("Three-feed merge (Java) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
+	t.Logf("Three-feed merge (Go combined) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
+
+	// Both should produce valid feeds
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	if len(javaErrs) > 0 {
+		t.Errorf("Java merged feed has validation errors: %v", javaErrs)
+	}
+	if len(goErrs) > 0 {
+		t.Errorf("Go combined merged feed has validation errors: %v", goErrs)
+	}
+
+	if len(javaErrs) == 0 && len(goErrs) == 0 {
+		t.Log("Both merged feeds pass validation!")
+	}
+}
+
+func TestConfigOptions_StrategySettersProduceValidOutput(t *testing.T) {
+	// Test that all strategy setters produce valid output
+	goMerger := merge.New()
+
+	// Set all strategies with identity detection
+	goMerger.SetAgencyStrategy(strategy.NewAgencyMergeStrategy())
+	goMerger.SetStopStrategy(strategy.NewStopMergeStrategy())
+	goMerger.SetRouteStrategy(strategy.NewRouteMergeStrategy())
+	goMerger.SetTripStrategy(strategy.NewTripMergeStrategy())
+	goMerger.SetCalendarStrategy(strategy.NewCalendarMergeStrategy())
+	goMerger.SetShapeStrategy(strategy.NewShapeMergeStrategy())
+	goMerger.SetFrequencyStrategy(strategy.NewFrequencyMergeStrategy())
+	goMerger.SetTransferStrategy(strategy.NewTransferMergeStrategy())
+	goMerger.SetFareAttributeStrategy(strategy.NewFareAttributeMergeStrategy())
+	goMerger.SetFareRuleStrategy(strategy.NewFareRuleMergeStrategy())
+	goMerger.SetFeedInfoStrategy(strategy.NewFeedInfoMergeStrategy())
+	goMerger.SetAreaStrategy(strategy.NewAreaMergeStrategy())
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_all_setters.zip")
+
+	err := goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge with all setters failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	t.Logf("All setters merge - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
+		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go all setters merged feed has validation errors:")
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go all setters merged feed passes validation")
+	}
+}
