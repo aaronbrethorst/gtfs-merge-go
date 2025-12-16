@@ -95,3 +95,36 @@ This project follows **Test-Driven Development (TDD)**:
 4. Refactor while keeping tests passing
 
 Test fixtures should go in `testdata/` with minimal valid GTFS feeds for testing various scenarios.
+
+## What to Work on Next
+
+This project follows a milestone-driven development process defined in `spec.md`.
+
+### Finding the Next Milestone
+
+1. **Check progress**: Look at the "Milestone Tracking" section at the end of `spec.md` to see completed milestones
+2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
+3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
+
+**Current Status** (check spec.md for latest): Milestones 1.1, 1.1.1, 1.1.2 are complete. Next milestone is **1.2 Define GTFS Entity Types**.
+
+### QA Process (Milestone 1.1.2)
+
+At every milestone completion and reasonable checkpoints, follow this process:
+
+1. **Code Review** - Use `code-review-expert` subagent to review changes
+2. **Run CI Checks Locally**:
+   ```bash
+   gofmt -l .              # Check formatting
+   go vet ./...            # Static analysis
+   golangci-lint run       # Linter
+   go test -v -race ./...  # Tests with race detector
+   ```
+3. **Verify Functionality** - Confirm deliverables work as expected
+4. **Commit** - Clear message referencing the milestone
+5. **Update Tracking** - Mark milestone complete in spec.md with notes
+
+### Key Files
+
+- `spec.md` - Full API specification, all milestone details, and progress tracking (see "Milestone Tracking" section at end)
+- `.github/workflows/ci.yml` - CI configuration (must pass before merge)
