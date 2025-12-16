@@ -1056,6 +1056,43 @@ jobs:
 
 All CI checks must pass before merging pull requests.
 
+#### 1.1.2 Quality Assurance Process
+
+At every milestone completion and at reasonable internal checkpoints during longer milestones, apply the following QA process:
+
+**1. Code Review**
+- Use the `code-review-expert` subagent to review all new or modified code
+- Address any issues identified before proceeding
+
+**2. Run CI Checks Locally**
+```bash
+# Check formatting (should produce no output if properly formatted)
+gofmt -l .
+
+# Run static analysis
+go vet ./...
+
+# Run linter (matches CI golangci-lint)
+golangci-lint run
+
+# Run tests with race detector
+go test -v -race ./...
+```
+
+**3. Verify Functionality**
+- Confirm the milestone deliverables work as expected
+- Test any new features or changes manually if appropriate
+
+**4. Commit Changes**
+- Create a commit with a clear, descriptive message
+- Reference the milestone number in commit messages when completing milestones
+
+**5. Update Milestone Tracking**
+- Mark the milestone as complete in the tracking section below
+- Add any feedback, notes, or lessons learned
+
+This process ensures consistent quality and catches issues locally before they reach CI.
+
 #### 1.2 Define GTFS Entity Types (TDD)
 
 **Tests to write first** (`gtfs/model_test.go`):
@@ -1819,3 +1856,31 @@ func TestConcurrentScoringPerformance(t *testing.T)
 | 15 | Performance | Optimization and polish |
 
 **Milestone 5 is the critical proof-of-concept** - after completing it, you have a working merge tool that can combine two disjoint feeds into one valid output.
+
+---
+
+## Milestone Tracking
+
+This section tracks completed milestones with feedback and notes.
+
+### Completed Milestones
+
+| Milestone | Status | Commit | Notes |
+|-----------|--------|--------|-------|
+| 1.1 Initialize Go Module | ✅ Complete | `12a9687` | Created `go.mod` with module path `github.com/aaronbrethorst/gtfs-merge-go` |
+| 1.1.1 Set Up GitHub Actions CI | ✅ Complete | `2350017` | Added `.github/workflows/ci.yml` with lint, test, fmt, vet jobs |
+| 1.1.2 Quality Assurance Process | ⏳ In Progress | - | This milestone |
+
+### Feedback & Notes
+
+#### Milestone 1.1 - Initialize Go Module
+- Straightforward initialization
+- Go version 1.24.2 used
+
+#### Milestone 1.1.1 - Set Up GitHub Actions CI
+- Uses Go 1.22 in CI (standard ubuntu-latest)
+- Four parallel jobs: lint, test, fmt, vet
+- golangci-lint-action v4 for linting
+
+#### Milestone 1.1.2 - Quality Assurance Process
+_Notes will be added upon completion_
