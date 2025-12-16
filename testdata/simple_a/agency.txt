@@ -1,0 +1,3 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang
+agency_a1,Transit Authority A,http://transit-a.example.com,America/New_York,en
+agency_a2,Metro Authority A,http://metro-a.example.com,America/New_York,en

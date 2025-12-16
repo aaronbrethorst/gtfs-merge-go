@@ -1,0 +1,2 @@
+route_id,service_id,trip_id,trip_headsign
+route_a1,service_a1,trip_a1,Overlap Trip

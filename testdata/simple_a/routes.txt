@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color
+route_a1,agency_a1,A1,Downtown Express,3,FF0000
+route_a2,agency_a2,A2,Crosstown Local,3,00FF00

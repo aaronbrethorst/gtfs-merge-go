@@ -1,0 +1,2 @@
+stop_id,stop_name,stop_lat,stop_lon
+stop1,Main Street Station,37.7749,-122.4194
