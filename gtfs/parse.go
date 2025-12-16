@@ -179,6 +179,7 @@ func ParseFeedInfo(row *CSVRow) *FeedInfo {
 		Version:       row.Get("feed_version"),
 		ContactEmail:  row.Get("feed_contact_email"),
 		ContactURL:    row.Get("feed_contact_url"),
+		FeedID:        row.Get("feed_id"),
 	}
 }
 

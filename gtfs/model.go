@@ -179,6 +179,7 @@ type FeedInfo struct {
 	Version       string
 	ContactEmail  string
 	ContactURL    string
+	FeedID        string
 }
 
 // Area represents a geographic area (areas.txt)

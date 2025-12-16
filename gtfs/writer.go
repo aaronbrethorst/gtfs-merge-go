@@ -562,22 +562,46 @@ func writeFeedInfo(zw *zip.Writer, feed *Feed) error {
 	}
 
 	csvw := NewCSVWriter(w)
-	header := []string{"feed_publisher_name", "feed_publisher_url", "feed_lang", "default_lang", "feed_start_date", "feed_end_date", "feed_version", "feed_contact_email", "feed_contact_url"}
+
+	// Define all possible columns in order, with their getters
+	type colDef struct {
+		name   string
+		getter func(*FeedInfo) string
+	}
+	allCols := []colDef{
+		{"feed_publisher_name", func(fi *FeedInfo) string { return fi.PublisherName }},
+		{"feed_publisher_url", func(fi *FeedInfo) string { return fi.PublisherURL }},
+		{"feed_lang", func(fi *FeedInfo) string { return fi.Lang }},
+		{"default_lang", func(fi *FeedInfo) string { return fi.DefaultLang }},
+		{"feed_start_date", func(fi *FeedInfo) string { return fi.StartDate }},
+		{"feed_end_date", func(fi *FeedInfo) string { return fi.EndDate }},
+		{"feed_version", func(fi *FeedInfo) string { return fi.Version }},
+		{"feed_contact_email", func(fi *FeedInfo) string { return fi.ContactEmail }},
+		{"feed_contact_url", func(fi *FeedInfo) string { return fi.ContactURL }},
+		{"feed_id", func(fi *FeedInfo) string { return fi.FeedID }},
+	}
+
+	// Filter to only columns present in source data
+	var activeCols []colDef
+	for _, col := range allCols {
+		if feed.HasColumn("feed_info.txt", col.name) {
+			activeCols = append(activeCols, col)
+		}
+	}
+
+	// Build header from active columns
+	header := make([]string, len(activeCols))
+	for i, col := range activeCols {
+		header[i] = col.name
+	}
 	if err := csvw.WriteHeader(header); err != nil {
 		return err
 	}
 
 	fi := feed.FeedInfo
-	record := []string{
-		fi.PublisherName,
-		fi.PublisherURL,
-		fi.Lang,
-		fi.DefaultLang,
-		fi.StartDate,
-		fi.EndDate,
-		fi.Version,
-		fi.ContactEmail,
-		fi.ContactURL,
+	record := make([]string, len(activeCols))
+	for i, col := range activeCols {
+		record[i] = col.getter(fi)
 	}
 	if err := csvw.WriteRecord(record); err != nil {
 		return err

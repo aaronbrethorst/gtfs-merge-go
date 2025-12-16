@@ -34,6 +34,7 @@ func (s *FeedInfoMergeStrategy) Merge(ctx *MergeContext) error {
 			Version:       ctx.Source.FeedInfo.Version,
 			ContactEmail:  ctx.Source.FeedInfo.ContactEmail,
 			ContactURL:    ctx.Source.FeedInfo.ContactURL,
+			FeedID:        ctx.Source.FeedInfo.FeedID,
 		}
 	} else if s.DuplicateDetection == DetectionIdentity {
 		// Merge: combine versions and expand date ranges

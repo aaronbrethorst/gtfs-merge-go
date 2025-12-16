@@ -58,8 +58,9 @@ func (f *Feed) AddColumnSet(filename string, columns []string) {
 	f.ColumnSets[filename] = colSet
 }
 
-// MergeColumnSets merges column sets from another feed using intersection
-// Only columns present in BOTH feeds are kept (to match Java behavior)
+// MergeColumnSets merges column sets from another feed using union.
+// Columns present in ANY feed are kept (to match Java behavior).
+// This ensures we don't lose data when feeds have different optional columns.
 func (f *Feed) MergeColumnSets(other *Feed) {
 	if other.ColumnSets == nil {
 		return
@@ -75,14 +76,12 @@ func (f *Feed) MergeColumnSets(other *Feed) {
 		}
 		return
 	}
-	// Subsequent feeds: intersect with existing columns
+	// Subsequent feeds: union with existing columns
 	for filename, otherCols := range other.ColumnSets {
 		if existingCols, exists := f.ColumnSets[filename]; exists {
-			// Keep only columns that exist in both
-			for col := range existingCols {
-				if !otherCols[col] {
-					delete(existingCols, col)
-				}
+			// Add any columns from other feed that we don't have
+			for col := range otherCols {
+				existingCols[col] = true
 			}
 		} else {
 			// File doesn't exist in target yet, add it
