@@ -44,6 +44,17 @@ The integration tests compare the Go implementation's output against the origina
 **Requirements:**
 - Java 11 or later (Java 17 recommended)
 
+**Check if Java is installed:**
+
+```bash
+java -version
+```
+
+If Java is not installed:
+- **macOS**: `brew install openjdk@17` or download from [Adoptium](https://adoptium.net/)
+- **Ubuntu/Debian**: `sudo apt install openjdk-17-jdk`
+- **Windows**: Download from [Adoptium](https://adoptium.net/)
+
 **Setup:**
 
 ```bash
@@ -58,7 +69,9 @@ The integration tests compare the Go implementation's output against the origina
 go test -v -tags=java ./compare/...
 ```
 
-The integration tests use a `//go:build java` tag, so they are skipped by default when running `go test ./...`. This allows development without Java installed. The CI pipeline runs these tests automatically with Java 17.
+**Note:** If Java is not installed, the integration tests will be **skipped** (not failed). The CI pipeline runs these tests automatically with Java 17.
+
+The integration tests use a `//go:build java` tag, so they are excluded by default when running `go test ./...`. This allows development without Java installed.
 
 ## Project Status
 

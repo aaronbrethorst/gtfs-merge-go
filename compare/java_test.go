@@ -4,9 +4,26 @@ package compare
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
+
+// skipIfNoJavaEnv skips the test if Java is not installed or JAR is missing
+func skipIfNoJavaEnv(t *testing.T) string {
+	// Check if Java is actually installed and working (not just a stub)
+	cmd := exec.Command("java", "-version")
+	if err := cmd.Run(); err != nil {
+		t.Skip("Java not installed or not working - skipping integration test")
+	}
+
+	// Check if JAR file exists
+	jarPath := GetDefaultJARPath()
+	if _, err := os.Stat(jarPath); os.IsNotExist(err) {
+		t.Skipf("JAR file not found at %s - run testdata/java/download.sh first", jarPath)
+	}
+	return jarPath
+}
 
 func TestJavaToolExists(t *testing.T) {
 	// Given: download script has been run
@@ -21,10 +38,7 @@ func TestJavaToolExists(t *testing.T) {
 
 func TestJavaToolMerge(t *testing.T) {
 	// Given: two input feeds (simple_a, simple_b)
-	jarPath := GetDefaultJARPath()
-	if _, err := os.Stat(jarPath); os.IsNotExist(err) {
-		t.Skipf("JAR file not found at %s - run testdata/java/download.sh first", jarPath)
-	}
+	jarPath := skipIfNoJavaEnv(t)
 
 	merger := NewJavaMerger(jarPath)
 	inputA := "../testdata/simple_a"
@@ -47,10 +61,7 @@ func TestJavaToolMerge(t *testing.T) {
 
 func TestJavaToolMergeWithDetection(t *testing.T) {
 	// Given: two input feeds with overlapping IDs
-	jarPath := GetDefaultJARPath()
-	if _, err := os.Stat(jarPath); os.IsNotExist(err) {
-		t.Skipf("JAR file not found at %s - run testdata/java/download.sh first", jarPath)
-	}
+	jarPath := skipIfNoJavaEnv(t)
 
 	merger := NewJavaMerger(jarPath)
 	inputA := "../testdata/simple_a"
@@ -73,10 +84,7 @@ func TestJavaToolMergeWithDetection(t *testing.T) {
 
 func TestJavaToolMergeMultipleFeeds(t *testing.T) {
 	// Given: three input feeds
-	jarPath := GetDefaultJARPath()
-	if _, err := os.Stat(jarPath); os.IsNotExist(err) {
-		t.Skipf("JAR file not found at %s - run testdata/java/download.sh first", jarPath)
-	}
+	jarPath := skipIfNoJavaEnv(t)
 
 	merger := NewJavaMerger(jarPath)
 	inputs := []string{

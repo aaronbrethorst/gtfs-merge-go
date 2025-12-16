@@ -4,6 +4,7 @@ package compare
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -12,6 +13,13 @@ import (
 )
 
 func skipIfNoJava(t *testing.T) string {
+	// Check if Java is actually installed and working (not just a stub)
+	cmd := exec.Command("java", "-version")
+	if err := cmd.Run(); err != nil {
+		t.Skip("Java not installed or not working - skipping integration test")
+	}
+
+	// Check if JAR file exists
 	jarPath := GetDefaultJARPath()
 	if _, err := os.Stat(jarPath); os.IsNotExist(err) {
 		t.Skipf("JAR file not found at %s - run testdata/java/download.sh first", jarPath)
