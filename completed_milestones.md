@@ -30,6 +30,10 @@
 | 11.1 Strategy Auto-Detection | ✅ Complete | `1e6558b` | AutoDetectDuplicateDetection() with configurable thresholds, 15 unit tests, 6 integration tests |
 | 12.1-12.2 Merger Configuration Options | ✅ Complete | - | Functional options (WithDebug, WithDefaultDetection, WithDefaultLogging, WithDefaultRenaming), per-strategy setters, GetStrategyForFile(), 10 unit tests, 6 Java integration tests |
 | 13.1-13.2 CLI Application | ✅ Complete | `3985f1b` | Command-line interface in `cmd/gtfs-merge/`, parseArgs() with flags, runMerge() integration, 15 unit tests, 7 Java integration tests |
+| 14.1-14.2 Integration Tests with Real Data | ✅ Complete | - | Edge case fixtures, sample feed tests, unicode/large ID/special char handling, 20+ Java integration tests |
+| 15.1 Benchmarks | ✅ Complete | - | Comprehensive benchmarks for gtfs, merge, scoring, strategy packages |
+| 15.2 Concurrent Fuzzy Matching | ✅ Complete | - | Worker pool pattern, ConcurrentConfig, integrated into Stop/Route strategies |
+| 15.3 Documentation | ✅ Complete | - | Package comments, README.md with examples, CONTRIBUTING.md |
 
 ### Feedback & Notes
 
@@ -426,3 +430,27 @@
 - All tests verify Go output passes validation
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 327+ tests (without Java tag), 20+ new Java integration tests
+
+#### Milestone 15 - Performance and Polish
+- **15.1 Benchmarks** - Added comprehensive benchmark tests:
+  - `gtfs/benchmark_test.go`: BenchmarkReadFeed, BenchmarkReadFeedFromZip, BenchmarkWriteFeed, BenchmarkReadLargeFeed, BenchmarkParsing
+  - `merge/benchmark_test.go`: BenchmarkMergeTwoFeeds, BenchmarkMergeTwoFeedsWithIdentity, BenchmarkMergeTwoFeedsWithFuzzy, BenchmarkMergeThreeFeeds, BenchmarkMergeFiles, BenchmarkLargeFeedMerge, BenchmarkMergeWithAllOptionalFiles
+  - `scoring/benchmark_test.go`: BenchmarkStopDistanceScorer, BenchmarkHaversineDistance, BenchmarkPropertyMatcher, BenchmarkAndScorer, BenchmarkElementOverlapScore, BenchmarkIntervalOverlapScore, BenchmarkServiceDateOverlapScorer
+  - `strategy/benchmark_test.go`: BenchmarkFuzzyScoring, BenchmarkFuzzyScoringStops, BenchmarkFuzzyScoringRoutes, BenchmarkFuzzyScoringTrips, BenchmarkIdentityDetection, BenchmarkAutoDetect, BenchmarkAutoDetectWithConfig
+- **15.2 Concurrent Fuzzy Matching**:
+  - Created `strategy/concurrent.go` with goroutine-based parallel scoring
+  - `ConcurrentConfig` struct with Enabled, NumWorkers, MinItemsForConcurrency settings
+  - `findBestMatchConcurrent[T, ID]` generic function using worker pool pattern
+  - Integrated into StopMergeStrategy and RouteMergeStrategy
+  - `SetConcurrent(bool)` and `SetConcurrentWorkers(int)` methods for configuration
+  - 9 unit tests for concurrent correctness and performance
+  - 3 integration tests verifying concurrent produces same results as sequential
+- **15.3 Documentation**:
+  - Added package comments to merge/ and strategy/ packages
+  - Updated README.md with comprehensive usage examples:
+    - CLI usage examples
+    - Library usage examples (basic, duplicate detection, direct feeds, concurrent)
+    - Architecture overview and entity processing order
+  - Created CONTRIBUTING.md with development guidelines
+- All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
+- Total: 340+ tests (without Java tag)

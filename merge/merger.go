@@ -1,3 +1,6 @@
+// Package merge provides the core GTFS feed merge orchestration.
+// It handles merging multiple GTFS feeds into a single unified feed,
+// with configurable duplicate detection, entity renaming, and referential integrity.
 package merge
 
 import (

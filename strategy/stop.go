@@ -13,6 +13,8 @@ type StopMergeStrategy struct {
 	BaseStrategy
 	// FuzzyThreshold is the minimum score for a fuzzy match (default 0.5)
 	FuzzyThreshold float64
+	// Concurrent controls concurrent processing for fuzzy matching
+	Concurrent ConcurrentConfig
 }
 
 // NewStopMergeStrategy creates a new StopMergeStrategy
@@ -20,6 +22,19 @@ func NewStopMergeStrategy() *StopMergeStrategy {
 	return &StopMergeStrategy{
 		BaseStrategy:   NewBaseStrategy("stop"),
 		FuzzyThreshold: 0.5,
+		Concurrent:     DefaultConcurrentConfig(),
+	}
+}
+
+// SetConcurrent enables or disables concurrent fuzzy matching
+func (s *StopMergeStrategy) SetConcurrent(enabled bool) {
+	s.Concurrent.Enabled = enabled
+}
+
+// SetConcurrentWorkers sets the number of worker goroutines for concurrent processing
+func (s *StopMergeStrategy) SetConcurrentWorkers(n int) {
+	if n > 0 {
+		s.Concurrent.NumWorkers = n
 	}
 }
 
@@ -108,11 +123,34 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 // findFuzzyMatch searches for a fuzzy duplicate in the target stops.
 // Returns the ID of the matching stop if found, or empty string if no match.
 // Uses name matching combined with geographic distance (multiplicative scoring).
+// Supports concurrent processing when enabled.
 func (s *StopMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Stop) gtfs.StopID {
+	// Convert map to slice for concurrent processing
+	targets := make([]*gtfs.Stop, 0, len(ctx.Target.Stops))
+	for _, stop := range ctx.Target.Stops {
+		targets = append(targets, stop)
+	}
+
+	// Use concurrent matching if enabled and enough items
+	if s.Concurrent.Enabled && len(targets) >= s.Concurrent.MinItemsForConcurrency {
+		return findBestMatchConcurrent(
+			targets,
+			func(stop *gtfs.Stop) gtfs.StopID { return stop.ID },
+			func(target *gtfs.Stop) float64 {
+				nameScore := stopNameScore(source, target)
+				distScore := stopDistanceScore(source, target)
+				return nameScore * distScore
+			},
+			s.FuzzyThreshold,
+			s.Concurrent,
+		)
+	}
+
+	// Sequential matching (default)
 	var bestMatch gtfs.StopID
 	var bestScore float64
 
-	for _, target := range ctx.Target.Stops {
+	for _, target := range targets {
 		// Calculate combined score: name match * distance score
 		nameScore := stopNameScore(source, target)
 		distScore := stopDistanceScore(source, target)

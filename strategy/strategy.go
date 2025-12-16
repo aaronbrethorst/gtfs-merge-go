@@ -1,3 +1,7 @@
+// Package strategy provides entity-specific merge strategies for GTFS feeds.
+// It defines the EntityMergeStrategy interface and implementations for all GTFS
+// entity types, supporting identity-based and fuzzy duplicate detection with
+// configurable logging and renaming options.
 package strategy
 
 import (

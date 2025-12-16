@@ -12,6 +12,8 @@ type RouteMergeStrategy struct {
 	BaseStrategy
 	// FuzzyThreshold is the minimum score for a fuzzy match (default 0.5)
 	FuzzyThreshold float64
+	// Concurrent controls concurrent processing for fuzzy matching
+	Concurrent ConcurrentConfig
 }
 
 // NewRouteMergeStrategy creates a new RouteMergeStrategy
@@ -19,6 +21,19 @@ func NewRouteMergeStrategy() *RouteMergeStrategy {
 	return &RouteMergeStrategy{
 		BaseStrategy:   NewBaseStrategy("route"),
 		FuzzyThreshold: 0.5,
+		Concurrent:     DefaultConcurrentConfig(),
+	}
+}
+
+// SetConcurrent enables or disables concurrent fuzzy matching
+func (s *RouteMergeStrategy) SetConcurrent(enabled bool) {
+	s.Concurrent.Enabled = enabled
+}
+
+// SetConcurrentWorkers sets the number of worker goroutines for concurrent processing
+func (s *RouteMergeStrategy) SetConcurrentWorkers(n int) {
+	if n > 0 {
+		s.Concurrent.NumWorkers = n
 	}
 }
 
@@ -101,11 +116,36 @@ func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
 // findFuzzyMatch searches for a fuzzy duplicate in the target routes.
 // Returns the ID of the matching route if found, or empty string if no match.
 // Uses agency, short_name, long_name matching combined with shared stops (multiplicative scoring).
+// Supports concurrent processing when enabled.
 func (s *RouteMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Route) gtfs.RouteID {
+	// Convert map to slice for concurrent processing
+	targets := make([]*gtfs.Route, 0, len(ctx.Target.Routes))
+	for _, route := range ctx.Target.Routes {
+		targets = append(targets, route)
+	}
+
+	// Use concurrent matching if enabled and enough items
+	if s.Concurrent.Enabled && len(targets) >= s.Concurrent.MinItemsForConcurrency {
+		return findBestMatchConcurrent(
+			targets,
+			func(route *gtfs.Route) gtfs.RouteID { return route.ID },
+			func(target *gtfs.Route) float64 {
+				agencyScore := routeAgencyScore(ctx, source, target)
+				shortNameScore := routePropertyScore(source.ShortName, target.ShortName)
+				longNameScore := routePropertyScore(source.LongName, target.LongName)
+				stopsScore := routeStopsInCommonScore(ctx, source.ID, target.ID)
+				return agencyScore * shortNameScore * longNameScore * stopsScore
+			},
+			s.FuzzyThreshold,
+			s.Concurrent,
+		)
+	}
+
+	// Sequential matching (default)
 	var bestMatch gtfs.RouteID
 	var bestScore float64
 
-	for _, target := range ctx.Target.Routes {
+	for _, target := range targets {
 		// Calculate combined score: agency * shortName * longName * stopsInCommon
 		agencyScore := routeAgencyScore(ctx, source, target)
 		shortNameScore := routePropertyScore(source.ShortName, target.ShortName)
