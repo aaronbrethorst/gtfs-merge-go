@@ -30,14 +30,14 @@ for feed in "${FEEDS[@]}"; do
 
     if [ -f "$path" ] && [ "$FORCE" = "false" ]; then
         echo "Already exists: $name.zip"
-        ((skip_count++))
+        skip_count=$((skip_count + 1))
         continue
     fi
 
     echo "Downloading $name from $url..."
     if curl -fSL -o "$path" "$url"; then
         echo "  Downloaded: $name.zip ($(du -h "$path" | cut -f1))"
-        ((download_count++))
+        download_count=$((download_count + 1))
     else
         echo "  ERROR: Failed to download $name"
         rm -f "$path"
