@@ -1879,6 +1879,9 @@ This section tracks completed milestones with feedback and notes.
 | 3.3 Zip Reader | ✅ Complete | `c59dcb0` | ReadFromZip() for zip input, handles nested directories, 5 tests |
 | 4.1 CSV Writer Utility | ✅ Complete | `f120a3e` | CSVWriter type wrapping standard csv.Writer, 8 tests |
 | 4.2 Feed Writer | ✅ Complete | `f120a3e` | WriteToPath() and WriteToZip() for complete feeds, 5 tests |
+| 5.1 Merge Context | ✅ Complete | `0383cdb` | MergeContext struct with ID mappings, GetPrefixForIndex(), 5 tests |
+| 5.2 Basic Merger | ✅ Complete | `0383cdb` | Merger with MergeFiles() and MergeFeeds(), 12 tests |
+| 5.3 ID Prefixing | ✅ Complete | `0383cdb` | Feeds processed in reverse order with a_, b_, c_ prefixes, 4 tests |
 
 ### Feedback & Notes
 
@@ -1971,3 +1974,36 @@ This section tracks completed milestones with feedback and notes.
 - Round-trip test verifies write/read produces identical data
 - All QA checks pass: gofmt, go vet, golangci-lint, race detector
 - Total: 89 tests passing with race detector
+
+#### Milestone 5 - Simple Feed Merge (No Duplicate Detection)
+- **This is the critical proof-of-concept milestone** - proves core merge capability works
+- Created `merge/` package with:
+  - `context.go` - MergeContext struct with source/target feeds, ID mappings for all entity types
+  - `merger.go` - Merger struct with MergeFiles() and MergeFeeds() methods
+  - `options.go` - Functional options pattern (WithDebug)
+- Merger processes feeds in **reverse order** (last feed first, gets no prefix)
+  - First feed (index 0, processed last) gets prefix based on position
+  - GetPrefixForIndex(): 0="" (no prefix), 1="a_", 2="b_", ..., 26="z_", 27="00_", etc.
+- Merges all 15 entity types in dependency order:
+  1. Agencies, Areas (no dependencies)
+  2. Stops (self-referential parent_station)
+  3. Calendars, CalendarDates
+  4. Routes (references agency)
+  5. Shapes
+  6. Trips (references route, service, shape)
+  7. StopTimes (references trip, stop)
+  8. Frequencies (references trip)
+  9. Transfers, Pathways (reference stops)
+  10. FareAttributes (references agency)
+  11. FareRules (references fare, route)
+  12. FeedInfo
+- All ID references are correctly updated when prefixes are applied
+- TDD approach: wrote 21 tests first across context and merger
+- Tests verify:
+  - Entity concatenation from multiple feeds
+  - Referential integrity maintained after merge
+  - Round-trip write/read produces valid GTFS
+  - ID prefixing with collisions
+  - Three-feed merge with correct prefix sequence
+- All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
+- Total: 110 tests passing with race detector
