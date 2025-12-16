@@ -1877,6 +1877,8 @@ This section tracks completed milestones with feedback and notes.
 | 3.1 Create Test Fixtures | ✅ Complete | `c59dcb0` | Created 4 test feeds in testdata/ directory |
 | 3.2 Directory Reader | ✅ Complete | `c59dcb0` | ReadFromPath() for directory input, 6 tests |
 | 3.3 Zip Reader | ✅ Complete | `c59dcb0` | ReadFromZip() for zip input, handles nested directories, 5 tests |
+| 4.1 CSV Writer Utility | ✅ Complete | `f120a3e` | CSVWriter type wrapping standard csv.Writer, 8 tests |
+| 4.2 Feed Writer | ✅ Complete | `f120a3e` | WriteToPath() and WriteToZip() for complete feeds, 5 tests |
 
 ### Feedback & Notes
 
@@ -1953,3 +1955,19 @@ This section tracks completed milestones with feedback and notes.
 - TDD approach: wrote 11 new reader tests, then implemented
 - All linter issues fixed (errcheck for defer Close() calls)
 - Total: 77 tests passing with race detector
+
+#### Milestone 4 - GTFS Writer
+- Created `gtfs/csv_writer.go` with CSVWriter type:
+  - Wraps standard csv.Writer for GTFS output
+  - Uses Unix-style line endings (LF) for consistency
+  - WriteHeader() and WriteRecord() methods
+  - Flush() for writing buffered data
+- Created `gtfs/writer.go` with WriteToPath() and WriteToZip() functions:
+  - Writes all 15 GTFS file types to zip archive
+  - Required files always written (agency, stops, routes, trips, stop_times, calendar)
+  - Optional files only written when data is present
+  - Helper functions formatInt(), formatFloat(), formatBool() for value conversion
+- TDD approach: wrote 13 tests first, then implemented
+- Round-trip test verifies write/read produces identical data
+- All QA checks pass: gofmt, go vet, golangci-lint, race detector
+- Total: 89 tests passing with race detector
