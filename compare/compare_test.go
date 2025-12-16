@@ -242,10 +242,3 @@ func logDifferences(t *testing.T, diffs []DiffResult) {
 		}
 	}
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

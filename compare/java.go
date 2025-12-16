@@ -60,30 +60,29 @@ func GetDefaultJARPath() string {
 	return filepath.Join(dir, "..", "testdata", "java", "onebusaway-gtfs-merge-cli.jar")
 }
 
-// Merge runs the Java merge tool and writes output to the given path
-func (j *JavaMerger) Merge(inputs []string, output string, opts ...JavaOption) error {
+// validate checks that the merge inputs are valid
+func (j *JavaMerger) validate(inputs []string) error {
 	if len(inputs) < 2 {
 		return fmt.Errorf("at least two input feeds are required")
 	}
-
-	// Check JAR exists
 	if _, err := os.Stat(j.JARPath); os.IsNotExist(err) {
 		return fmt.Errorf("JAR file not found: %s (run testdata/java/download.sh)", j.JARPath)
 	}
+	return nil
+}
 
-	// Apply options
+// buildArgs creates the command-line arguments for the Java merge
+func (j *JavaMerger) buildArgs(inputs []string, output string, opts ...JavaOption) []string {
 	cfg := &javaConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	// Build command args
 	args := []string{
 		"-Xmx" + j.MaxMemory,
 		"-jar", j.JARPath,
 	}
 
-	// Add options
 	if cfg.duplicateDetection != "" {
 		args = append(args, "--duplicateDetection="+cfg.duplicateDetection)
 	}
@@ -91,64 +90,40 @@ func (j *JavaMerger) Merge(inputs []string, output string, opts ...JavaOption) e
 		args = append(args, "--logDroppedDuplicates")
 	}
 
-	// Add inputs and output
 	args = append(args, inputs...)
 	args = append(args, output)
+	return args
+}
 
-	// Run the command
+// Merge runs the Java merge tool and writes output to the given path
+func (j *JavaMerger) Merge(inputs []string, output string, opts ...JavaOption) error {
+	if err := j.validate(inputs); err != nil {
+		return err
+	}
+
+	args := j.buildArgs(inputs, output, opts...)
 	cmd := exec.Command(j.JavaBin, args...)
-	cmd.Stderr = os.Stderr // Show errors
-	cmd.Stdout = os.Stdout // Show output
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("java merge failed: %w", err)
 	}
-
 	return nil
 }
 
 // MergeQuiet runs the merge without printing to stdout/stderr
 func (j *JavaMerger) MergeQuiet(inputs []string, output string, opts ...JavaOption) error {
-	if len(inputs) < 2 {
-		return fmt.Errorf("at least two input feeds are required")
+	if err := j.validate(inputs); err != nil {
+		return err
 	}
 
-	// Check JAR exists
-	if _, err := os.Stat(j.JARPath); os.IsNotExist(err) {
-		return fmt.Errorf("JAR file not found: %s (run testdata/java/download.sh)", j.JARPath)
-	}
-
-	// Apply options
-	cfg := &javaConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	// Build command args
-	args := []string{
-		"-Xmx" + j.MaxMemory,
-		"-jar", j.JARPath,
-	}
-
-	// Add options
-	if cfg.duplicateDetection != "" {
-		args = append(args, "--duplicateDetection="+cfg.duplicateDetection)
-	}
-	if cfg.logDuplicates {
-		args = append(args, "--logDroppedDuplicates")
-	}
-
-	// Add inputs and output
-	args = append(args, inputs...)
-	args = append(args, output)
-
-	// Run the command quietly
+	args := j.buildArgs(inputs, output, opts...)
 	cmd := exec.Command(j.JavaBin, args...)
 
-	output_bytes, err := cmd.CombinedOutput()
+	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("java merge failed: %w\nOutput: %s", err, string(output_bytes))
+		return fmt.Errorf("java merge failed: %w\nOutput: %s", err, string(outputBytes))
 	}
-
 	return nil
 }
