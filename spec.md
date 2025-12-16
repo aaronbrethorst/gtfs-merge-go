@@ -396,13 +396,26 @@ package strategy
 type RenamingStrategy int
 
 const (
-    // RenameContext - use context prefix (a_, b_, c_, etc.)
+    // RenameContext - use context prefix (a-, b-, c-, etc. for up to 26 feeds, or 00-, 01-, etc. for more)
     RenameContext RenamingStrategy = iota
 
     // RenameAgency - use agency-based naming
     RenameAgency
 )
 ```
+
+### Auto-Detection Thresholds
+
+By default, no duplicate detection strategy is specified, triggering **auto-detection**.
+The system analyzes source and target feeds to pick the best strategy (IDENTITY, FUZZY, or NONE).
+
+The following thresholds control auto-detection behavior (all default to 0.5):
+
+| Threshold | Default | Purpose |
+|-----------|---------|---------|
+| `MinElementsInCommonScoreForAutoDetect` | 0.5 | ID overlap score needed to consider IDENTITY mode |
+| `MinElementsDuplicateScoreForAutoDetect` | 0.5 | Entity match score for strategy selection |
+| `MinElementDuplicateScoreForFuzzyMatch` | 0.5 | Candidate filtering for fuzzy matching |
 
 ---
 
@@ -487,10 +500,14 @@ type Merger struct {
 // New creates a new Merger with default strategies
 func New(opts ...Option) *Merger
 
-// MergeFiles merges multiple GTFS files into one output file
+// MergeFiles merges multiple GTFS files into one output file.
+// IMPORTANT: Input feeds are processed in REVERSE order (newest/last first).
+// This ensures entities from newer feeds are added first and older duplicates
+// are potentially dropped.
 func (m *Merger) MergeFiles(inputPaths []string, outputPath string) error
 
-// MergeFeeds merges multiple Feed objects into a single Feed
+// MergeFeeds merges multiple Feed objects into a single Feed.
+// IMPORTANT: Feeds are processed in REVERSE order (last element first).
 func (m *Merger) MergeFeeds(feeds []*gtfs.Feed) (*gtfs.Feed, error)
 
 // Strategy setters for customization
@@ -558,7 +575,10 @@ type PropertyMatcher[T any] struct {
 
 func (p *PropertyMatcher[T]) Score(ctx *strategy.MergeContext, source, target T) float64
 
-// AndScorer combines multiple scorers (all must score above threshold)
+// AndScorer combines multiple scorers using MULTIPLICATION.
+// Final score = scorer1 * scorer2 * ... * scorerN
+// A single 0.0 score fails the entire match (early exit optimization).
+// All entity merge strategies use AndScorer to combine their scoring rules.
 type AndScorer[T any] struct {
     Scorers   []Scorer[T]
     Threshold float64
@@ -567,15 +587,34 @@ type AndScorer[T any] struct {
 func (a *AndScorer[T]) Score(ctx *strategy.MergeContext, source, target T) float64
 ```
 
+### Scoring Formulas
+
+The following formulas are used for overlap calculations:
+
+**Element Overlap** (for sets of IDs, stops, dates):
+```
+score = (common_count / a.size + common_count / b.size) / 2
+```
+Returns 0.0 if either collection is empty. Returns 1.0 for identical sets.
+
+**Interval Overlap** (for time windows):
+```
+overlap = max(0, min(end1, end2) - max(start1, start2))
+score = (overlap / interval_a_length + overlap / interval_b_length) / 2
+```
+
 ### Specialized Scorers
 
 ```go
 package scoring
 
-// StopDistanceScorer scores stops by geographic proximity
-type StopDistanceScorer struct {
-    MaxDistanceMeters float64  // Default: 500m
-}
+// StopDistanceScorer scores stops by geographic proximity using great-circle distance.
+// Uses hardcoded tiered thresholds (not configurable):
+//   - < 50m  → 1.0
+//   - < 100m → 0.75
+//   - < 500m → 0.5
+//   - >= 500m → 0.0
+type StopDistanceScorer struct{}
 
 func (s *StopDistanceScorer) Score(ctx *strategy.MergeContext, source, target *gtfs.Stop) float64
 
@@ -593,10 +632,10 @@ type TripStopsInCommonScorer struct {
 
 func (t *TripStopsInCommonScorer) Score(ctx *strategy.MergeContext, source, target *gtfs.Trip) float64
 
-// TripScheduleOverlapScorer scores trips by schedule similarity
-type TripScheduleOverlapScorer struct {
-    MaxTimeDiffSeconds int  // Default: 300 (5 minutes)
-}
+// TripScheduleOverlapScorer scores trips by schedule similarity.
+// Computes overlap of time windows [first_stop_departure, last_stop_arrival].
+// Uses interval overlap formula: (overlap/interval_a + overlap/interval_b) / 2
+type TripScheduleOverlapScorer struct{}
 
 func (t *TripScheduleOverlapScorer) Score(ctx *strategy.MergeContext, source, target *gtfs.Trip) float64
 
@@ -691,20 +730,26 @@ func main() {
 - **ID collision**: Renames agency ID across all referencing entities
 
 ### Stop Merge
-- **Detection**: Matches on `name`, geographic distance (within 500m default)
+- **Detection**: Matches on `name` AND geographic distance (combined multiplicatively)
+  - PropertyMatch("name") * StopDistanceScorer
 - **On duplicate**: Updates stop_times, transfers, and pathways
 - **ID collision**: Renames stop ID in all references
 
 ### Route Merge
-- **Detection**: Matches on `agency_id`, `short_name`, `long_name`, and shared stops
+- **Detection**: Matches on `agency`, `short_name`, `long_name`, AND shared stops (all combined multiplicatively)
+  - PropertyMatch("agency") * PropertyMatch("shortName") * PropertyMatch("longName") * RouteStopsInCommonScorer
 - **On duplicate**: Updates trips and fare_rules
 - **ID collision**: Renames route ID in all references
 
 ### Trip Merge
-- **Detection**: Matches on `route_id`, `service_id`, shared stops, schedule overlap
+- **Detection**: Matches on `route`, `service_id`, shared stops, schedule overlap (all combined multiplicatively)
+  - PropertyMatch("route") * PropertyMatch("serviceId") * TripStopsInCommonScorer * TripScheduleOverlapScorer
 - **On duplicate**: Updates stop_times and frequencies
 - **ID collision**: Renames trip ID in all references
-- **Validation**: Rejects merge if stop times differ substantially
+- **Validation**: Rejects merge if:
+  - Stop count differs between trips
+  - Any stop at the same sequence position differs
+  - Any arrival or departure time differs (exact integer comparison, not fuzzy)
 
 ### Service Calendar Merge
 - **Detection**: Matches on date overlap
@@ -750,18 +795,18 @@ Entities are merged in dependency order to maintain referential integrity:
 
 1. **Agencies** - No dependencies
 2. **Areas** - No dependencies
-3. **Stops** - References: parent_station (self-referential)
+3. **Stops** - References: parent_station (self-referential). Also updates Transfers and Pathways when stops merge.
 4. **Service Calendars** - No dependencies (calendar.txt + calendar_dates.txt)
 5. **Routes** - References: agency_id
-6. **Shapes** - No dependencies
-7. **Trips** - References: route_id, service_id, shape_id
-8. **Stop Times** - References: trip_id, stop_id (handled with trips)
-9. **Frequencies** - References: trip_id (handled with trips)
-10. **Transfers** - References: from_stop_id, to_stop_id
-11. **Fare Attributes** - References: agency_id
-12. **Fare Rules** - References: fare_id, route_id
-13. **Feed Info** - No dependencies
-14. **Pathways** - References: from_stop_id, to_stop_id
+6. **Trips** - References: route_id, service_id, shape_id. Also handles StopTimes.
+7. **Shapes** - No dependencies (shape_id collection)
+8. **Frequencies** - References: trip_id
+9. **Transfers** - References: from_stop_id, to_stop_id
+10. **Fare Attributes** - References: agency_id
+11. **Fare Rules** - References: fare_id, route_id
+12. **Feed Info** - No dependencies
+
+Note: Pathways are updated within StopMergeStrategy when stops are merged, not as a separate processing step.
 
 ---
 
