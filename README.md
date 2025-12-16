@@ -51,6 +51,7 @@ java -version
 ```
 
 If Java is not installed:
+- **Using mise** (recommended): `mise install` (uses `mise.toml` in this repo)
 - **macOS**: `brew install openjdk@17` or download from [Adoptium](https://adoptium.net/)
 - **Ubuntu/Debian**: `sudo apt install openjdk-17-jdk`
 - **Windows**: Download from [Adoptium](https://adoptium.net/)
