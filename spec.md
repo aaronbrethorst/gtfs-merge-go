@@ -1959,6 +1959,7 @@ This section tracks completed milestones with feedback and notes.
 | 9.1-9.5 Duplicate Scoring Infrastructure | ✅ Complete | - | `scoring/` package with Scorer interface, PropertyMatcher, AndScorer, specialized scorers, 55 tests |
 | 10.1-10.4 Fuzzy Duplicate Detection | ✅ Complete | - | Fuzzy detection in Stop, Route, Trip, Calendar strategies; 18 new unit tests, 5 integration tests |
 | 11.1 Strategy Auto-Detection | ✅ Complete | `1e6558b` | AutoDetectDuplicateDetection() with configurable thresholds, 15 unit tests, 6 integration tests |
+| 12.1-12.2 Merger Configuration Options | ✅ Complete | - | Functional options (WithDebug, WithDefaultDetection, WithDefaultLogging, WithDefaultRenaming), per-strategy setters, GetStrategyForFile(), 10 unit tests, 6 Java integration tests |
 
 ### Feedback & Notes
 
@@ -2269,3 +2270,33 @@ This section tracks completed milestones with feedback and notes.
   - 6 Java integration tests for auto-detection validation
 - All QA checks pass: gofmt, go vet, race detector
 - Total: 307+ tests (without Java tag)
+
+#### Milestone 12 - Merger Configuration Options
+- Completed implementation of functional options pattern in `merge/options.go`:
+  - `WithDebug(bool)` - Enables debug output
+  - `WithDefaultDetection(DuplicateDetection)` - Sets detection mode for all strategies
+  - `WithDefaultLogging(DuplicateLogging)` - Sets logging mode for all strategies
+  - `WithDefaultRenaming(RenamingStrategy)` - Sets renaming strategy for all strategies
+- Per-strategy configuration via setters on Merger:
+  - `SetAgencyStrategy()`, `SetStopStrategy()`, `SetRouteStrategy()`, etc.
+  - `GetStrategyForFile(filename)` - Returns strategy for a GTFS file
+  - `SetDuplicateDetectionForAll()` - Bulk configuration
+- **Unit Tests** (`merge/options_test.go`):
+  - `TestWithDebug` - Verifies debug flag setting
+  - `TestWithDefaultDetection` - Tests all detection modes
+  - `TestWithDefaultLogging` - Tests all logging modes
+  - `TestWithDefaultRenaming` - Tests renaming strategies
+  - `TestMultipleOptions` - Combined options test
+  - `TestSetAgencyStrategy`, `TestSetStopStrategy` - Per-strategy setters
+  - `TestCustomStrategyUsed` - Verifies custom strategy behavior
+  - `TestAllStrategySetters` - All 12 strategy setters
+  - `TestMixedStrategyConfiguration` - Global vs per-strategy config
+- **Java Integration Tests** (`compare/compare_test.go`):
+  - `TestConfigOptions_GoDebugModeProducesValidOutput`
+  - `TestConfigOptions_CompareGoOptionsWithJava`
+  - `TestConfigOptions_PerStrategyConfiguration`
+  - `TestConfigOptions_JavaVsGoIdentityDetection`
+  - `TestConfigOptions_CombinedOptionsWithJava`
+  - `TestConfigOptions_StrategySettersProduceValidOutput`
+- All QA checks pass: gofmt, go vet, race detector
+- Total: 317+ tests (without Java tag)
