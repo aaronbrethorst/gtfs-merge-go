@@ -1951,6 +1951,8 @@ This section tracks completed milestones with feedback and notes.
 | 5.5.2 CSV Normalization | ✅ Complete | `5e3d1f1` | NormalizeCSV(), PrimaryKey(), GTFSColumnOrder(), 11 tests |
 | 5.5.3 Comparison Framework | ✅ Complete | `5e3d1f1` | CompareGTFS(), CompareCSV(), DiffResult, 6 tests |
 | 5.5.4 CI Integration | ✅ Complete | `5e3d1f1` | Added compare-java job to CI workflow |
+| 6.1 Referential Integrity Validation | ✅ Complete | `aca9ebc` | Validate() method with refs for routes, trips, stop_times, transfers, fares, pathways, 15 tests |
+| 6.2 Required Field Validation | ✅ Complete | `aca9ebc` | Required field checks for agency, stop, route, trip, stop_time, calendar, 6 tests |
 
 ### Feedback & Notes
 
@@ -2097,3 +2099,34 @@ This section tracks completed milestones with feedback and notes.
   - Sets up Java 17 (Temurin), caches JAR, runs comparison tests
 - Tests: 11 normalization tests (always run) + 6 comparison tests (require Java)
 - Total test count: 121 tests (without Java tag)
+
+#### Milestone 6 - Feed Validation
+- Created `gtfs/validate.go` with `Validate()` method on Feed struct
+- Returns `[]error` for all validation issues found
+- **Referential Integrity Validation** (6.1):
+  - Route -> Agency reference (required when multiple agencies exist)
+  - Trip -> Route, Service (calendar or calendar_dates), Shape references
+  - StopTime -> Trip, Stop references
+  - Stop -> ParentStation self-reference
+  - Transfer -> FromStop, ToStop references
+  - Frequency -> Trip reference
+  - FareAttribute -> Agency reference (optional field)
+  - FareRule -> Fare (required), Route (optional) references
+  - Pathway -> FromStop, ToStop references
+- **Required Field Validation** (6.2):
+  - Agency: name, url, timezone required
+  - Stop: stop_id required, stop_name required for location_type 0-2
+  - Route: route_id required, at least one of short_name or long_name required
+  - Trip: trip_id, route_id, service_id required
+  - StopTime: trip_id, stop_id required
+  - Calendar: service_id, start_date, end_date required
+- Defined `ValidationError` type with EntityType, EntityID, Field, Message for clear error reporting
+- Also fixed pre-existing linter errors in compare/compare.go (errcheck warnings)
+- TDD approach: wrote 21 validation tests first, then implemented
+- All QA checks pass: gofmt, go vet, golangci-lint (0 issues), race detector
+- **Java Integration Tests for Validation** (4 new tests in `compare/compare_test.go`):
+  - `TestValidation_GoMergedFeedPassesValidation` - Go merged output is valid GTFS
+  - `TestValidation_JavaMergedFeedPassesValidation` - Java merged output passes our validation
+  - `TestValidation_BothMergedFeedsValidate` - Compare validation results for both outputs
+  - `TestValidation_MergeWithOverlapPassesValidation` - Overlapping ID merge produces valid output
+- Total: 142 tests (without Java tag), 155 tests (with Java tag)

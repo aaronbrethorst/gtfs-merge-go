@@ -250,3 +250,200 @@ func logDifferences(t *testing.T, diffs []DiffResult) {
 		}
 	}
 }
+
+// ============================================================================
+// Validation Integration Tests
+// ============================================================================
+
+func TestValidation_GoMergedFeedPassesValidation(t *testing.T) {
+	// Verify that Go's merge output produces a valid GTFS feed
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+
+	// Merge with Go
+	err := goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Go merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Go merged feed passes validation")
+	}
+}
+
+func TestValidation_JavaMergedFeedPassesValidation(t *testing.T) {
+	// Verify that Java's merge output passes our validation
+	// This ensures our validation isn't too strict
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_merged.zip")
+
+	// Merge with Java
+	err := javaMerger.MergeQuiet([]string{inputA, inputB}, javaOutput)
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	// Read and validate
+	feed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	errs := feed.Validate()
+	if len(errs) > 0 {
+		t.Errorf("Java merged feed has %d validation errors:", len(errs))
+		for _, e := range errs {
+			t.Errorf("  - %v", e)
+		}
+	} else {
+		t.Log("Java merged feed passes validation")
+	}
+}
+
+func TestValidation_BothMergedFeedsValidate(t *testing.T) {
+	// Compare validation results for both Go and Java merged outputs
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputB := "../testdata/simple_b"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_merged.zip")
+	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+
+	// Merge with both tools
+	err := javaMerger.MergeQuiet([]string{inputA, inputB}, javaOutput)
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	err = goMerger.MergeFiles([]string{inputA, inputB}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read both feeds
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	// Validate both
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	t.Logf("Java merged feed validation errors: %d", len(javaErrs))
+	t.Logf("Go merged feed validation errors: %d", len(goErrs))
+
+	// Both should pass validation
+	if len(javaErrs) > 0 {
+		t.Errorf("Java merged feed has validation errors:")
+		for _, e := range javaErrs {
+			t.Errorf("  - %v", e)
+		}
+	}
+
+	if len(goErrs) > 0 {
+		t.Errorf("Go merged feed has validation errors:")
+		for _, e := range goErrs {
+			t.Errorf("  - %v", e)
+		}
+	}
+
+	if len(javaErrs) == 0 && len(goErrs) == 0 {
+		t.Log("Both merged feeds pass validation!")
+	}
+}
+
+func TestValidation_MergeWithOverlapPassesValidation(t *testing.T) {
+	// Verify that merging feeds with overlapping IDs still produces valid output
+	jarPath := skipIfNoJava(t)
+
+	javaMerger := NewJavaMerger(jarPath)
+	goMerger := merge.New()
+
+	inputA := "../testdata/simple_a"
+	inputOverlap := "../testdata/overlap"
+
+	tmpDir := t.TempDir()
+	javaOutput := filepath.Join(tmpDir, "java_merged.zip")
+	goOutput := filepath.Join(tmpDir, "go_merged.zip")
+
+	// Merge with both tools (forces prefixing due to overlapping IDs)
+	err := javaMerger.MergeQuiet([]string{inputA, inputOverlap}, javaOutput, WithDuplicateDetection("none"))
+	if err != nil {
+		t.Fatalf("Java merge failed: %v", err)
+	}
+
+	err = goMerger.MergeFiles([]string{inputA, inputOverlap}, goOutput)
+	if err != nil {
+		t.Fatalf("Go merge failed: %v", err)
+	}
+
+	// Read and validate both
+	javaFeed, err := gtfs.ReadFromPath(javaOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Java output: %v", err)
+	}
+
+	goFeed, err := gtfs.ReadFromPath(goOutput)
+	if err != nil {
+		t.Fatalf("Failed to read Go output: %v", err)
+	}
+
+	javaErrs := javaFeed.Validate()
+	goErrs := goFeed.Validate()
+
+	t.Logf("Java merged (with overlap) validation errors: %d", len(javaErrs))
+	t.Logf("Go merged (with overlap) validation errors: %d", len(goErrs))
+
+	if len(javaErrs) > 0 {
+		t.Errorf("Java merged feed (with overlap) has validation errors:")
+		for _, e := range javaErrs {
+			t.Errorf("  - %v", e)
+		}
+	}
+
+	if len(goErrs) > 0 {
+		t.Errorf("Go merged feed (with overlap) has validation errors:")
+		for _, e := range goErrs {
+			t.Errorf("  - %v", e)
+		}
+	}
+
+	if len(javaErrs) == 0 && len(goErrs) == 0 {
+		t.Log("Both merged feeds (with overlap) pass validation!")
+	}
+}
