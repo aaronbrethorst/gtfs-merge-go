@@ -1879,9 +1879,9 @@ This section tracks completed milestones with feedback and notes.
 | 3.3 Zip Reader | ✅ Complete | `c59dcb0` | ReadFromZip() for zip input, handles nested directories, 5 tests |
 | 4.1 CSV Writer Utility | ✅ Complete | `f120a3e` | CSVWriter type wrapping standard csv.Writer, 8 tests |
 | 4.2 Feed Writer | ✅ Complete | `f120a3e` | WriteToPath() and WriteToZip() for complete feeds, 5 tests |
-| 5.1 Merge Context | ✅ Complete | (this commit) | MergeContext struct with ID mappings, GetPrefixForIndex(), 5 tests |
-| 5.2 Basic Merger | ✅ Complete | (this commit) | Merger with MergeFiles() and MergeFeeds(), 12 tests |
-| 5.3 ID Prefixing | ✅ Complete | (this commit) | Feeds processed in reverse order with a_, b_, c_ prefixes, 4 tests |
+| 5.1 Merge Context | ✅ Complete | `0383cdb` | MergeContext struct with ID mappings, GetPrefixForIndex(), 5 tests |
+| 5.2 Basic Merger | ✅ Complete | `0383cdb` | Merger with MergeFiles() and MergeFeeds(), 12 tests |
+| 5.3 ID Prefixing | ✅ Complete | `0383cdb` | Feeds processed in reverse order with a_, b_, c_ prefixes, 4 tests |
 
 ### Feedback & Notes
 
