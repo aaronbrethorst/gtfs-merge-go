@@ -116,11 +116,11 @@ This project follows a milestone-driven development process defined in `spec.md`
 
 ### Finding the Next Milestone
 
-1. **Check progress**: Look at the "Milestone Tracking" section at the end of `spec.md` to see completed milestones
-2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
+1. **Check progress**: Look at the completed_milestones.md document to see completed milestones
+2. **Find next task**: The milestones.md document lists all milestones in order - find the first uncompleted one
 3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
 
-**Current Status** (check spec.md for latest): Milestones 1-13 are complete. The project has a fully functional GTFS merge CLI with duplicate detection (none, identity, fuzzy), Java comparison testing, and feed validation. Next milestone is **14: Integration Tests with Real Data**.
+**Current Status** (check spec.md for latest): Milestones 1-14 are complete. The project has a fully functional GTFS merge CLI with duplicate detection (none, identity, fuzzy), Java comparison testing, and feed validation. Next milestone is **15: Performance and Polish**.
 
 ### QA Process (Milestone 1.1.2)
 
