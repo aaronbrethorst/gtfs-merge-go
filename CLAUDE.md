@@ -111,7 +111,7 @@ This project follows a milestone-driven development process defined in `spec.md`
 2. **Find next task**: The "Implementation Milestones" section lists all milestones in order - find the first uncompleted one
 3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
 
-**Current Status** (check spec.md for latest): Milestones 1-5.5 are complete. The project has a working merge capability with Java comparison testing. Next milestone is **6: Feed Validation**.
+**Current Status** (check spec.md for latest): Milestones 1-6 are complete. The project has a working merge capability with Java comparison testing and feed validation. Next milestone is **7: Strategy Interface and Base Classes**.
 
 ### QA Process (Milestone 1.1.2)
 
