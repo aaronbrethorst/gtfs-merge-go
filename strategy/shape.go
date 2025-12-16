@@ -40,8 +40,12 @@ func (s *ShapeMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.ShapeID(ctx.Prefix + string(shapeID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := shapeID
+		if _, exists := ctx.Target.Shapes[shapeID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.ShapeID(ctx.Prefix + string(shapeID))
+		}
 		ctx.ShapeIDMapping[shapeID] = newID
 
 		for _, point := range points {

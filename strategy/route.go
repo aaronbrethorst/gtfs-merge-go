@@ -40,8 +40,12 @@ func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.RouteID(ctx.Prefix + string(route.ID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := route.ID
+		if _, exists := ctx.Target.Routes[route.ID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.RouteID(ctx.Prefix + string(route.ID))
+		}
 		ctx.RouteIDMapping[route.ID] = newID
 
 		// Map agency reference

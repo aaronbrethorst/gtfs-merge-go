@@ -40,8 +40,12 @@ func (s *TripMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.TripID(ctx.Prefix + string(trip.ID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := trip.ID
+		if _, exists := ctx.Target.Trips[trip.ID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.TripID(ctx.Prefix + string(trip.ID))
+		}
 		ctx.TripIDMapping[trip.ID] = newID
 
 		// Map references

@@ -40,8 +40,12 @@ func (s *AreaMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.AreaID(ctx.Prefix + string(area.ID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := area.ID
+		if _, exists := ctx.Target.Areas[area.ID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.AreaID(ctx.Prefix + string(area.ID))
+		}
 		ctx.AreaIDMapping[area.ID] = newID
 
 		newArea := &gtfs.Area{

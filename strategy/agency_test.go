@@ -212,7 +212,7 @@ func TestAgencyMergeErrorOnDuplicate(t *testing.T) {
 }
 
 func TestAgencyMergeWithPrefix(t *testing.T) {
-	// Given: source feed has an agency and we're using a prefix
+	// Given: source feed has an agency that collides with target
 	source := gtfs.NewFeed()
 	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
 		ID:       "agency1",
@@ -222,20 +222,27 @@ func TestAgencyMergeWithPrefix(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding agency to force prefixing
+	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+		ID:       "agency1",
+		Name:     "Different Transit",
+		URL:      "http://different.example.com",
+		Timezone: "America/Denver",
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewAgencyMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged with prefix
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: agency should have prefixed ID
-	if len(target.Agencies) != 1 {
-		t.Errorf("Expected 1 agency, got %d", len(target.Agencies))
+	// Then: agency should have prefixed ID (2 total)
+	if len(target.Agencies) != 2 {
+		t.Errorf("Expected 2 agencies, got %d", len(target.Agencies))
 	}
 
 	if _, ok := target.Agencies["a_agency1"]; !ok {

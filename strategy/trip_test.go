@@ -171,6 +171,7 @@ func TestTripMergeUpdatesFrequencyRefs(t *testing.T) {
 
 func TestTripMergeWithReferences(t *testing.T) {
 	// Given: source trip references route, service, and shape that have been mapped
+	// and target has a colliding trip ID to force prefixing
 	source := gtfs.NewFeed()
 	source.Trips[gtfs.TripID("trip1")] = &gtfs.Trip{
 		ID:        "trip1",
@@ -181,9 +182,16 @@ func TestTripMergeWithReferences(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding trip to force prefixing
+	target.Trips[gtfs.TripID("trip1")] = &gtfs.Trip{
+		ID:        "trip1",
+		RouteID:   "other_route",
+		ServiceID: "other_service",
+		Headsign:  "Different",
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
-	// Simulate that dependencies have already been merged
+	// Simulate that dependencies have already been merged with collision
 	ctx.RouteIDMapping[gtfs.RouteID("route1")] = gtfs.RouteID("a_route1")
 	ctx.ServiceIDMapping[gtfs.ServiceID("service1")] = gtfs.ServiceID("a_service1")
 	ctx.ShapeIDMapping[gtfs.ShapeID("shape1")] = gtfs.ShapeID("a_shape1")
@@ -191,13 +199,13 @@ func TestTripMergeWithReferences(t *testing.T) {
 	strategy := NewTripMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: trip should reference the mapped entities
+	// Then: trip should reference the mapped entities with prefixed ID
 	trip := target.Trips["a_trip1"]
 	if trip == nil {
 		t.Fatal("Expected a_trip1 to be in target")

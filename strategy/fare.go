@@ -40,8 +40,12 @@ func (s *FareAttributeMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.FareID(ctx.Prefix + string(fare.FareID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := fare.FareID
+		if _, exists := ctx.Target.FareAttributes[fare.FareID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.FareID(ctx.Prefix + string(fare.FareID))
+		}
 		ctx.FareIDMapping[fare.FareID] = newID
 
 		// Map agency reference

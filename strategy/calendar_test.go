@@ -176,12 +176,17 @@ func TestCalendarDatesMerged(t *testing.T) {
 
 func TestCalendarDatesWithNewServiceID(t *testing.T) {
 	// Given: source has calendar dates for a service not in calendar.txt
+	// and target has a collision for that service ID
 	source := gtfs.NewFeed()
 	source.CalendarDates[gtfs.ServiceID("service_new")] = []*gtfs.CalendarDate{
 		{ServiceID: "service_new", Date: "20240704", ExceptionType: 1},
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding calendar dates to force prefixing
+	target.CalendarDates[gtfs.ServiceID("service_new")] = []*gtfs.CalendarDate{
+		{ServiceID: "service_new", Date: "20240101", ExceptionType: 2},
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
 	// No mapping set for service_new (it's only in calendar_dates)
@@ -189,7 +194,7 @@ func TestCalendarDatesWithNewServiceID(t *testing.T) {
 	strategy := NewCalendarDateMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
@@ -198,7 +203,7 @@ func TestCalendarDatesWithNewServiceID(t *testing.T) {
 	// Then: calendar dates should be in target with prefixed service ID
 	dates := target.CalendarDates[gtfs.ServiceID("a_service_new")]
 	if len(dates) != 1 {
-		t.Errorf("Expected 1 calendar date, got %d", len(dates))
+		t.Errorf("Expected 1 calendar date for a_service_new, got %d", len(dates))
 	}
 
 	// And the mapping should be updated

@@ -40,8 +40,12 @@ func (s *AgencyMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.AgencyID(ctx.Prefix + string(agency.ID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := agency.ID
+		if _, exists := ctx.Target.Agencies[agency.ID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.AgencyID(ctx.Prefix + string(agency.ID))
+		}
 		ctx.AgencyIDMapping[agency.ID] = newID
 
 		newAgency := &gtfs.Agency{

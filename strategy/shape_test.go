@@ -113,7 +113,7 @@ func TestShapeMergeUpdatesTripRefs(t *testing.T) {
 }
 
 func TestShapeMergeWithPrefix(t *testing.T) {
-	// Given: source feed has a shape and we're using a prefix
+	// Given: source feed has a shape that collides with target
 	source := gtfs.NewFeed()
 	source.Shapes[gtfs.ShapeID("shape1")] = []*gtfs.ShapePoint{
 		{ShapeID: "shape1", Lat: 40.7128, Lon: -74.0060, Sequence: 1},
@@ -121,20 +121,24 @@ func TestShapeMergeWithPrefix(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding shape to force prefixing
+	target.Shapes[gtfs.ShapeID("shape1")] = []*gtfs.ShapePoint{
+		{ShapeID: "shape1", Lat: 41.0, Lon: -75.0, Sequence: 1},
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewShapeMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged with prefix
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: shape should have prefixed ID
-	if len(target.Shapes) != 1 {
-		t.Errorf("Expected 1 shape, got %d", len(target.Shapes))
+	// Then: should have 2 shapes (original + prefixed)
+	if len(target.Shapes) != 2 {
+		t.Errorf("Expected 2 shapes, got %d", len(target.Shapes))
 	}
 
 	if _, ok := target.Shapes["a_shape1"]; !ok {
@@ -143,7 +147,7 @@ func TestShapeMergeWithPrefix(t *testing.T) {
 
 	points := target.Shapes["a_shape1"]
 	if len(points) != 2 {
-		t.Errorf("Expected 2 points, got %d", len(points))
+		t.Errorf("Expected 2 points for a_shape1, got %d", len(points))
 	}
 
 	// Verify all points have the new shape ID

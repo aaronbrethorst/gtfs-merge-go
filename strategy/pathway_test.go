@@ -48,6 +48,7 @@ func TestPathwayMergeNoDuplicates(t *testing.T) {
 
 func TestPathwayMergeWithMappedStops(t *testing.T) {
 	// Given: source pathway references stops that have been mapped
+	// and target has a colliding pathway ID
 	source := gtfs.NewFeed()
 	source.Pathways = append(source.Pathways, &gtfs.Pathway{
 		ID:              "pathway1",
@@ -58,6 +59,14 @@ func TestPathwayMergeWithMappedStops(t *testing.T) {
 	})
 
 	target := gtfs.NewFeed()
+	// Add colliding pathway to force prefixing
+	target.Pathways = append(target.Pathways, &gtfs.Pathway{
+		ID:              "pathway1",
+		FromStopID:      "other_stop1",
+		ToStopID:        "other_stop2",
+		PathwayMode:     2,
+		IsBidirectional: 0,
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	ctx.StopIDMapping[gtfs.StopID("stop1")] = gtfs.StopID("a_stop1")
@@ -65,24 +74,33 @@ func TestPathwayMergeWithMappedStops(t *testing.T) {
 
 	strategy := NewPathwayMergeStrategy()
 
-	// When: merged
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: pathway should reference mapped stops
-	if len(target.Pathways) != 1 {
-		t.Fatalf("Expected 1 pathway, got %d", len(target.Pathways))
+	// Then: should have 2 pathways (original + prefixed)
+	if len(target.Pathways) != 2 {
+		t.Fatalf("Expected 2 pathways, got %d", len(target.Pathways))
 	}
 
-	if target.Pathways[0].ID != "a_pathway1" {
-		t.Errorf("Expected ID = a_pathway1, got %q", target.Pathways[0].ID)
+	// Find the new prefixed pathway
+	var newPathway *gtfs.Pathway
+	for _, p := range target.Pathways {
+		if p.ID == "a_pathway1" {
+			newPathway = p
+			break
+		}
 	}
-	if target.Pathways[0].FromStopID != "a_stop1" {
-		t.Errorf("Expected FromStopID = a_stop1, got %q", target.Pathways[0].FromStopID)
+	if newPathway == nil {
+		t.Fatal("Expected a_pathway1 to be in target")
 	}
-	if target.Pathways[0].ToStopID != "a_stop2" {
-		t.Errorf("Expected ToStopID = a_stop2, got %q", target.Pathways[0].ToStopID)
+
+	if newPathway.FromStopID != "a_stop1" {
+		t.Errorf("Expected FromStopID = a_stop1, got %q", newPathway.FromStopID)
+	}
+	if newPathway.ToStopID != "a_stop2" {
+		t.Errorf("Expected ToStopID = a_stop2, got %q", newPathway.ToStopID)
 	}
 }

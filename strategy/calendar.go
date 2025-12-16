@@ -41,8 +41,12 @@ func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.ServiceID(ctx.Prefix + string(cal.ServiceID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := cal.ServiceID
+		if _, exists := ctx.Target.Calendars[cal.ServiceID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.ServiceID(ctx.Prefix + string(cal.ServiceID))
+		}
 		ctx.ServiceIDMapping[cal.ServiceID] = newID
 
 		newCal := &gtfs.Calendar{
@@ -81,7 +85,11 @@ func (s *CalendarDateMergeStrategy) Merge(ctx *MergeContext) error {
 		newServiceID := ctx.ServiceIDMapping[serviceID]
 		if newServiceID == "" {
 			// Service may only be defined in calendar_dates, not calendar
-			newServiceID = gtfs.ServiceID(ctx.Prefix + string(serviceID))
+			// Only apply prefix if there's a collision
+			newServiceID = serviceID
+			if _, exists := ctx.Target.CalendarDates[serviceID]; exists {
+				newServiceID = gtfs.ServiceID(ctx.Prefix + string(serviceID))
+			}
 			ctx.ServiceIDMapping[serviceID] = newServiceID
 		}
 

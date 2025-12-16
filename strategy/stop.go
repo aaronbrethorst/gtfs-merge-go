@@ -40,8 +40,12 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// No duplicate - add with prefix if needed
-		newID := gtfs.StopID(ctx.Prefix + string(stop.ID))
+		// Determine new ID - only apply prefix if there's a collision
+		newID := stop.ID
+		if _, exists := ctx.Target.Stops[stop.ID]; exists {
+			// Collision detected - apply prefix
+			newID = gtfs.StopID(ctx.Prefix + string(stop.ID))
+		}
 		ctx.StopIDMapping[stop.ID] = newID
 
 		// Handle parent_station reference
@@ -49,9 +53,11 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 		if parentStation != "" {
 			if mappedParent, ok := ctx.StopIDMapping[parentStation]; ok {
 				parentStation = mappedParent
-			} else {
+			} else if _, exists := ctx.Target.Stops[parentStation]; exists {
+				// Parent exists in target with collision - would have been prefixed
 				parentStation = gtfs.StopID(ctx.Prefix + string(parentStation))
 			}
+			// Otherwise keep as-is (no collision)
 		}
 
 		newStop := &gtfs.Stop{

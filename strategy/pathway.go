@@ -30,21 +30,28 @@ func (s *PathwayMergeStrategy) Merge(ctx *MergeContext) error {
 			toStopID = mappedStop
 		}
 
-		newID := ctx.Prefix + pathway.ID
-
 		// Check for duplicates based on ID
 		isDuplicate := false
-		if s.DuplicateDetection == DetectionIdentity {
-			for _, existing := range ctx.Target.Pathways {
-				if existing.ID == newID || existing.ID == pathway.ID {
+		hasCollision := false
+		for _, existing := range ctx.Target.Pathways {
+			if existing.ID == pathway.ID {
+				if s.DuplicateDetection == DetectionIdentity {
 					isDuplicate = true
-					break
+				} else {
+					hasCollision = true
 				}
+				break
 			}
 		}
 
 		if isDuplicate {
 			continue
+		}
+
+		// Only apply prefix if there's a collision
+		newID := pathway.ID
+		if hasCollision {
+			newID = ctx.Prefix + pathway.ID
 		}
 
 		newPathway := &gtfs.Pathway{

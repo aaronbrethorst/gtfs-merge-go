@@ -169,6 +169,7 @@ func TestStopMergeUpdatesTransferRefs(t *testing.T) {
 
 func TestStopMergeUpdatesParentStation(t *testing.T) {
 	// Given: source has a child stop referencing a parent
+	// and target has colliding IDs to force prefixing
 	source := gtfs.NewFeed()
 	source.Stops[gtfs.StopID("parent1")] = &gtfs.Stop{
 		ID:           "parent1",
@@ -187,12 +188,28 @@ func TestStopMergeUpdatesParentStation(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding stops to force prefixing
+	target.Stops[gtfs.StopID("parent1")] = &gtfs.Stop{
+		ID:           "parent1",
+		Name:         "Different Parent",
+		LocationType: 1,
+		Lat:          41.0,
+		Lon:          -75.0,
+	}
+	target.Stops[gtfs.StopID("child1")] = &gtfs.Stop{
+		ID:            "child1",
+		Name:          "Different Child",
+		LocationType:  0,
+		ParentStation: "parent1",
+		Lat:           41.0,
+		Lon:           -75.0,
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewStopMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged with prefix
+	// When: merged with prefix (collision forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
@@ -210,7 +227,7 @@ func TestStopMergeUpdatesParentStation(t *testing.T) {
 }
 
 func TestStopMergeWithPrefix(t *testing.T) {
-	// Given: source feed has a stop and we're using a prefix
+	// Given: source feed has a stop that collides with target
 	source := gtfs.NewFeed()
 	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
 		ID:   "stop1",
@@ -220,20 +237,27 @@ func TestStopMergeWithPrefix(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding stop to force prefixing
+	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+		ID:   "stop1",
+		Name: "Different Station",
+		Lat:  41.0,
+		Lon:  -75.0,
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewStopMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged with prefix
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: stop should have prefixed ID
-	if len(target.Stops) != 1 {
-		t.Errorf("Expected 1 stop, got %d", len(target.Stops))
+	// Then: stop should have prefixed ID (collision adds new prefixed stop)
+	if len(target.Stops) != 2 {
+		t.Errorf("Expected 2 stops, got %d", len(target.Stops))
 	}
 
 	if _, ok := target.Stops["a_stop1"]; !ok {

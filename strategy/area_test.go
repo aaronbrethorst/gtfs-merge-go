@@ -78,7 +78,7 @@ func TestAreaMergeIdentityDuplicate(t *testing.T) {
 }
 
 func TestAreaMergeWithPrefix(t *testing.T) {
-	// Given: source feed has an area and we're using a prefix
+	// Given: source feed has an area that collides with target
 	source := gtfs.NewFeed()
 	source.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
 		ID:   "area1",
@@ -86,20 +86,25 @@ func TestAreaMergeWithPrefix(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding area to force prefixing
+	target.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
+		ID:   "area1",
+		Name: "Different Area",
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewAreaMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged with prefix
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: area should have prefixed ID
-	if len(target.Areas) != 1 {
-		t.Errorf("Expected 1 area, got %d", len(target.Areas))
+	// Then: area should have prefixed ID (2 total)
+	if len(target.Areas) != 2 {
+		t.Errorf("Expected 2 areas, got %d", len(target.Areas))
 	}
 
 	if _, ok := target.Areas["a_area1"]; !ok {

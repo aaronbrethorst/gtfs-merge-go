@@ -160,6 +160,7 @@ func TestRouteMergeUpdatesFareRuleRefs(t *testing.T) {
 
 func TestRouteMergeWithAgencyRef(t *testing.T) {
 	// Given: source route references an agency that has been mapped
+	// and target has a colliding route to force prefixing
 	source := gtfs.NewFeed()
 	source.Routes[gtfs.RouteID("route1")] = &gtfs.Route{
 		ID:       "route1",
@@ -169,21 +170,27 @@ func TestRouteMergeWithAgencyRef(t *testing.T) {
 	}
 
 	target := gtfs.NewFeed()
+	// Add colliding route to force prefixing
+	target.Routes[gtfs.RouteID("route1")] = &gtfs.Route{
+		ID:       "route1",
+		LongName: "Different Route",
+		Type:     1,
+	}
 
 	ctx := NewMergeContext(source, target, "a_")
-	// Simulate that agency has already been merged
+	// Simulate that agency has already been merged with collision
 	ctx.AgencyIDMapping[gtfs.AgencyID("agency1")] = gtfs.AgencyID("a_agency1")
 
 	strategy := NewRouteMergeStrategy()
 	strategy.SetDuplicateDetection(DetectionNone)
 
-	// When: merged
+	// When: merged with collision (forces prefix)
 	err := strategy.Merge(ctx)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	// Then: route should reference the mapped agency
+	// Then: route should reference the mapped agency with prefixed ID
 	route := target.Routes["a_route1"]
 	if route == nil {
 		t.Fatal("Expected a_route1 to be in target")
