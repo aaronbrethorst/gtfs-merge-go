@@ -110,23 +110,17 @@ This project follows **Test-Driven Development (TDD)**:
 
 Test fixtures should go in `testdata/` with minimal valid GTFS feeds for testing various scenarios.
 
-## What to Work on Next
+## Project Status
 
-This project follows a milestone-driven development process defined in `spec.md`.
+**All milestones are complete.** The project has a fully functional GTFS merge CLI with duplicate detection (none, identity, fuzzy), Java comparison testing, and feed validation.
 
-### Finding the Next Milestone
+The original project specification and milestone tracking have been archived to [docs/archived/spec.md](docs/archived/spec.md).
 
-1. **Check progress**: Look at the completed_milestones.md document to see completed milestones
-2. **Find next task**: The milestones.md document lists all milestones in order - find the first uncompleted one
-3. **Read the details**: Each milestone has specific tests to write first (TDD) and implementation guidance
+### QA Process
 
-**Current Status** (check spec.md for latest): Milestones 1-14 are complete. The project has a fully functional GTFS merge CLI with duplicate detection (none, identity, fuzzy), Java comparison testing, and feed validation. Next milestone is **15: Performance and Polish**.
+At every significant change, follow this process:
 
-### QA Process (Milestone 1.1.2)
-
-At every milestone completion and reasonable checkpoints, follow this process:
-
-1. **Code Review** - Use `code-review-expert` subagent to review changes
+1. **Code Review** - Review changes for correctness and style
 2. **Run CI Checks Locally**:
    ```bash
    gofmt -l .              # Check formatting
@@ -135,10 +129,9 @@ At every milestone completion and reasonable checkpoints, follow this process:
    go test -v -race ./...  # Tests with race detector
    ```
 3. **Verify Functionality** - Confirm deliverables work as expected
-4. **Commit** - Clear message referencing the milestone
-5. **Update Tracking** - Mark milestone complete in spec.md with notes
+4. **Commit** - Clear message describing the change
 
 ### Key Files
 
-- `spec.md` - Full API specification, all milestone details, and progress tracking (see "Milestone Tracking" section at end)
+- `docs/archived/spec.md` - Original project specification and milestone tracking (completed)
 - `.github/workflows/ci.yml` - CI configuration (must pass before merge)
