@@ -187,3 +187,92 @@ func TestShapeMergeErrorOnDuplicate(t *testing.T) {
 		t.Fatal("Expected error when duplicate detected with LogError")
 	}
 }
+
+func TestShapeMergeDeterministicSequences(t *testing.T) {
+	// This test verifies that shape points get deterministic sequence numbers
+	// regardless of Go's map iteration order. This is critical for Java parity.
+	//
+	// We create multiple shapes and verify that they always get the same
+	// sequence numbers in the same order across multiple runs.
+
+	// Given: a source feed with multiple shapes (using IDs that would sort differently)
+	createSourceFeed := func() *gtfs.Feed {
+		source := gtfs.NewFeed()
+		// Use shape IDs that might iterate in different orders in a map
+		// to verify we're sorting them properly
+		shapes := map[gtfs.ShapeID][]*gtfs.ShapePoint{
+			"zebra": {
+				{ShapeID: "zebra", Lat: 1.0, Lon: 1.0, Sequence: 1},
+				{ShapeID: "zebra", Lat: 1.1, Lon: 1.1, Sequence: 2},
+			},
+			"alpha": {
+				{ShapeID: "alpha", Lat: 2.0, Lon: 2.0, Sequence: 1},
+			},
+			"beta": {
+				{ShapeID: "beta", Lat: 3.0, Lon: 3.0, Sequence: 1},
+				{ShapeID: "beta", Lat: 3.1, Lon: 3.1, Sequence: 2},
+				{ShapeID: "beta", Lat: 3.2, Lon: 3.2, Sequence: 3},
+			},
+		}
+		for id, points := range shapes {
+			source.Shapes[id] = points
+		}
+		return source
+	}
+
+	// Run merge multiple times and verify sequence assignment is deterministic
+	var firstRunSequences map[gtfs.ShapeID][]int
+	for run := 0; run < 10; run++ {
+		source := createSourceFeed()
+		target := gtfs.NewFeed()
+		ctx := NewMergeContext(source, target, "")
+		strategy := NewShapeMergeStrategy()
+
+		err := strategy.Merge(ctx)
+		if err != nil {
+			t.Fatalf("Run %d: Merge failed: %v", run, err)
+		}
+
+		// Collect sequences for each shape
+		sequences := make(map[gtfs.ShapeID][]int)
+		for shapeID, points := range target.Shapes {
+			for _, p := range points {
+				sequences[shapeID] = append(sequences[shapeID], p.Sequence)
+			}
+		}
+
+		if run == 0 {
+			firstRunSequences = sequences
+		} else {
+			// Verify all sequences match the first run
+			for shapeID, seqs := range sequences {
+				expected := firstRunSequences[shapeID]
+				if len(seqs) != len(expected) {
+					t.Errorf("Run %d: Shape %q has %d points, expected %d",
+						run, shapeID, len(seqs), len(expected))
+					continue
+				}
+				for i, seq := range seqs {
+					if seq != expected[i] {
+						t.Errorf("Run %d: Shape %q point %d has sequence %d, expected %d",
+							run, shapeID, i, seq, expected[i])
+					}
+				}
+			}
+		}
+	}
+
+	// Verify the shapes were processed in sorted order (alpha, beta, zebra)
+	// Alpha should get sequence 1
+	// Beta should get sequences 2, 3, 4
+	// Zebra should get sequences 5, 6
+	if firstRunSequences["alpha"][0] != 1 {
+		t.Errorf("Expected alpha to get sequence 1, got %d", firstRunSequences["alpha"][0])
+	}
+	if firstRunSequences["beta"][0] != 2 {
+		t.Errorf("Expected beta first point to get sequence 2, got %d", firstRunSequences["beta"][0])
+	}
+	if firstRunSequences["zebra"][0] != 5 {
+		t.Errorf("Expected zebra first point to get sequence 5, got %d", firstRunSequences["zebra"][0])
+	}
+}
