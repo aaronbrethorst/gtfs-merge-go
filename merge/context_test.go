@@ -28,10 +28,10 @@ func TestMergeContextWithPrefix(t *testing.T) {
 	target := gtfs.NewFeed()
 
 	ctx := NewMergeContext(source, target)
-	ctx.Prefix = "a_"
+	ctx.Prefix = "a-"
 
-	if ctx.Prefix != "a_" {
-		t.Errorf("expected prefix 'a_', got %q", ctx.Prefix)
+	if ctx.Prefix != "a-" {
+		t.Errorf("expected prefix 'a-', got %q", ctx.Prefix)
 	}
 }
 
@@ -116,12 +116,12 @@ func TestGetPrefixForIndex(t *testing.T) {
 		expected string
 	}{
 		{0, ""},      // First feed gets no prefix
-		{1, "a_"},    // Second feed
-		{2, "b_"},    // Third feed
-		{26, "z_"},   // 27th feed (last letter)
-		{27, "00_"},  // 28th feed (numeric)
-		{28, "01_"},  // 29th feed
-		{126, "99_"}, // 127th feed
+		{1, "a-"},    // Second feed
+		{2, "b-"},    // Third feed
+		{26, "z-"},   // 27th feed (last letter)
+		{27, "00-"},  // 28th feed (numeric)
+		{28, "01-"},  // 29th feed
+		{126, "99-"}, // 127th feed
 	}
 
 	for _, tt := range tests {

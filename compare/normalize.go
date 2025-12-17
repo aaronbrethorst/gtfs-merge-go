@@ -61,7 +61,7 @@ var gtfsColumnOrders = map[string][]string{
 	"feed_info.txt": {
 		"feed_publisher_name", "feed_publisher_url", "feed_lang", "default_lang",
 		"feed_start_date", "feed_end_date", "feed_version", "feed_contact_email",
-		"feed_contact_url",
+		"feed_contact_url", "feed_id",
 	},
 	"areas.txt": {
 		"area_id", "area_name",

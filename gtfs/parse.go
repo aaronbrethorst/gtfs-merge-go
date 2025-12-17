@@ -60,7 +60,7 @@ func ParseTrip(row *CSVRow) *Trip {
 		ServiceID:            ServiceID(row.Get("service_id")),
 		Headsign:             row.Get("trip_headsign"),
 		ShortName:            row.Get("trip_short_name"),
-		DirectionID:          row.GetInt("direction_id"),
+		DirectionID:          row.GetIntPtr("direction_id"),
 		BlockID:              row.Get("block_id"),
 		ShapeID:              ShapeID(row.Get("shape_id")),
 		WheelchairAccessible: row.GetInt("wheelchair_accessible"),
@@ -179,6 +179,7 @@ func ParseFeedInfo(row *CSVRow) *FeedInfo {
 		Version:       row.Get("feed_version"),
 		ContactEmail:  row.Get("feed_contact_email"),
 		ContactURL:    row.Get("feed_contact_url"),
+		FeedID:        row.Get("feed_id"),
 	}
 }
 

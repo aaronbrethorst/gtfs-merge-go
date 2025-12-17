@@ -203,7 +203,9 @@ go test -v -tags=java ./compare/...
 
 ## Project Status
 
-See [spec.md](spec.md) for the full project specification and milestone tracking.
+**All milestones are complete.** This project is fully functional with duplicate detection (none, identity, fuzzy), Java comparison testing, and feed validation.
+
+See [docs/archived/spec.md](docs/archived/spec.md) for the original project specification and milestone tracking.
 
 ## License
 

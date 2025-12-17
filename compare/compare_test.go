@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
@@ -222,14 +221,11 @@ func TestCompare_EntityCounts(t *testing.T) {
 func compareCounts(t *testing.T, entity string, java, golang int) {
 	if java != golang {
 		t.Errorf("%s count mismatch: Java=%d, Go=%d", entity, java, golang)
-	} else {
-		t.Logf("%s count: %d (matched)", entity, java)
 	}
 }
 
 func logDifferences(t *testing.T, diffs []DiffResult) {
 	if len(diffs) == 0 {
-		t.Log("No differences found - outputs match!")
 		return
 	}
 
@@ -285,8 +281,6 @@ func TestValidation_GoMergedFeedPassesValidation(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go merged feed passes validation")
 	}
 }
 
@@ -321,8 +315,6 @@ func TestValidation_JavaMergedFeedPassesValidation(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Java merged feed passes validation")
 	}
 }
 
@@ -366,9 +358,6 @@ func TestValidation_BothMergedFeedsValidate(t *testing.T) {
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
 
-	t.Logf("Java merged feed validation errors: %d", len(javaErrs))
-	t.Logf("Go merged feed validation errors: %d", len(goErrs))
-
 	// Both should pass validation
 	if len(javaErrs) > 0 {
 		t.Errorf("Java merged feed has validation errors:")
@@ -382,10 +371,6 @@ func TestValidation_BothMergedFeedsValidate(t *testing.T) {
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	}
-
-	if len(javaErrs) == 0 && len(goErrs) == 0 {
-		t.Log("Both merged feeds pass validation!")
 	}
 }
 
@@ -428,9 +413,6 @@ func TestValidation_MergeWithOverlapPassesValidation(t *testing.T) {
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
 
-	t.Logf("Java merged (with overlap) validation errors: %d", len(javaErrs))
-	t.Logf("Go merged (with overlap) validation errors: %d", len(goErrs))
-
 	if len(javaErrs) > 0 {
 		t.Errorf("Java merged feed (with overlap) has validation errors:")
 		for _, e := range javaErrs {
@@ -443,10 +425,6 @@ func TestValidation_MergeWithOverlapPassesValidation(t *testing.T) {
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	}
-
-	if len(javaErrs) == 0 && len(goErrs) == 0 {
-		t.Log("Both merged feeds (with overlap) pass validation!")
 	}
 }
 
@@ -495,10 +473,6 @@ func TestDetectionModes_JavaIdentityVsNone(t *testing.T) {
 	// With overlapping IDs:
 	// - Identity mode should detect duplicates and merge them (fewer entities)
 	// - None mode should keep all entities (more entities, with prefixes)
-	t.Logf("Java identity detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(identityFeed.Agencies), len(identityFeed.Stops), len(identityFeed.Routes), len(identityFeed.Trips))
-	t.Logf("Java none detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(noneFeed.Agencies), len(noneFeed.Stops), len(noneFeed.Routes), len(noneFeed.Trips))
 
 	// Verify both produce valid feeds
 	identityErrs := identityFeed.Validate()
@@ -511,11 +485,6 @@ func TestDetectionModes_JavaIdentityVsNone(t *testing.T) {
 		t.Errorf("Java none merged feed has validation errors: %v", noneErrs)
 	}
 
-	// None mode should generally have >= entity counts compared to identity
-	// (identity merges duplicates, none keeps all with prefixes)
-	if len(noneFeed.Agencies) < len(identityFeed.Agencies) {
-		t.Log("Note: none mode has fewer agencies than identity - may be expected based on Java's algorithm")
-	}
 }
 
 func TestDetectionModes_GoMatchesJavaNone(t *testing.T) {
@@ -555,11 +524,6 @@ func TestDetectionModes_GoMatchesJavaNone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Java (none detection) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips), len(javaFeed.StopTimes))
-	t.Logf("Go (none detection) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips), len(goFeed.StopTimes))
 
 	// For non-overlapping feeds, counts should match exactly
 	if len(javaFeed.Agencies) != len(goFeed.Agencies) {
@@ -617,11 +581,6 @@ func TestDetectionModes_ThreeFeedMerge(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Three-feed merge (Java) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Three-feed merge (Go) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 	// Both should produce valid feeds
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
@@ -631,20 +590,6 @@ func TestDetectionModes_ThreeFeedMerge(t *testing.T) {
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go three-feed merge has validation errors: %v", goErrs)
-	}
-
-	// Entity counts should match for non-overlapping feeds with none detection
-	if len(javaFeed.Agencies) != len(goFeed.Agencies) {
-		t.Logf("Note: Agency count differs - Java=%d, Go=%d", len(javaFeed.Agencies), len(goFeed.Agencies))
-	}
-	if len(javaFeed.Stops) != len(goFeed.Stops) {
-		t.Logf("Note: Stop count differs - Java=%d, Go=%d", len(javaFeed.Stops), len(goFeed.Stops))
-	}
-	if len(javaFeed.Routes) != len(goFeed.Routes) {
-		t.Logf("Note: Route count differs - Java=%d, Go=%d", len(javaFeed.Routes), len(goFeed.Routes))
-	}
-	if len(javaFeed.Trips) != len(goFeed.Trips) {
-		t.Logf("Note: Trip count differs - Java=%d, Go=%d", len(javaFeed.Trips), len(goFeed.Trips))
 	}
 }
 
@@ -688,18 +633,7 @@ func TestDetectionModes_OverlapWithIdentity(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Overlap merge (Java identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Overlap merge (Go identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
-	// Note: Counts may differ because Java auto-selects detection strategy per entity type
-	// Go with identity detection should have fewer or equal entities (duplicates merged)
-	if len(goFeed.Agencies) > len(javaFeed.Agencies) {
-		t.Logf("Note: Go has more agencies than Java - unexpected with identity detection")
-	}
-
-	// Both should still produce valid output - this is the key requirement
+	// Both should produce valid output
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
 
@@ -754,26 +688,9 @@ func TestIdentityDetection_GoMatchesJavaIdentity(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Java (identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips), len(javaFeed.StopTimes))
-	t.Logf("Go (identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, StopTimes: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips), len(goFeed.StopTimes))
-
 	// Note: Counts may differ because Java auto-selects detection strategy per entity type
-	// Log differences for documentation purposes
-	if len(javaFeed.Agencies) != len(goFeed.Agencies) {
-		t.Logf("Note: Agency count differs - Java=%d (auto-selects NONE), Go=%d (uses identity)",
-			len(javaFeed.Agencies), len(goFeed.Agencies))
-	}
-	if len(javaFeed.Stops) != len(goFeed.Stops) {
-		t.Logf("Note: Stop count differs - Java=%d, Go=%d", len(javaFeed.Stops), len(goFeed.Stops))
-	}
-	if len(javaFeed.Routes) != len(goFeed.Routes) {
-		t.Logf("Note: Route count differs - Java=%d, Go=%d", len(javaFeed.Routes), len(goFeed.Routes))
-	}
-	if len(javaFeed.Trips) != len(goFeed.Trips) {
-		t.Logf("Note: Trip count differs - Java=%d, Go=%d", len(javaFeed.Trips), len(goFeed.Trips))
-	}
+	_ = javaFeed
+	_ = goFeed
 }
 
 func TestIdentityDetection_PreservesReferentialIntegrity(t *testing.T) {
@@ -803,8 +720,6 @@ func TestIdentityDetection_PreservesReferentialIntegrity(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go identity-merged feed passes validation!")
 	}
 }
 
@@ -845,11 +760,6 @@ func TestIdentityDetection_ThreeFeedMerge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Three-feed merge (Java identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Three-feed merge (Go identity) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
 	// Validate both
 	javaErrs := javaFeed.Validate()
@@ -896,18 +806,6 @@ func TestIdentityDetection_CompareNoneVsIdentity(t *testing.T) {
 		t.Fatalf("Failed to read identity output: %v", err)
 	}
 
-	t.Logf("Go none detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(noneFeed.Agencies), len(noneFeed.Stops), len(noneFeed.Routes), len(noneFeed.Trips))
-	t.Logf("Go identity detection - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(identityFeed.Agencies), len(identityFeed.Stops), len(identityFeed.Routes), len(identityFeed.Trips))
-
-	// With overlapping feeds:
-	// - none detection should keep all entities (more entities, with prefixes)
-	// - identity detection should merge duplicates (fewer entities)
-	if len(noneFeed.Agencies) <= len(identityFeed.Agencies) {
-		t.Log("Note: none detection should have more entities than identity detection for overlapping feeds")
-	}
-
 	// Both should produce valid feeds
 	noneErrs := noneFeed.Validate()
 	identityErrs := identityFeed.Validate()
@@ -952,8 +850,6 @@ func TestFuzzyDetection_ProducesValidOutput(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go fuzzy-merged feed passes validation")
 	}
 }
 
@@ -990,23 +886,10 @@ func TestFuzzyDetection_MergesSimilarEntities(t *testing.T) {
 		t.Fatalf("Failed to read fuzzy_similar: %v", err)
 	}
 
-	t.Logf("simple_a - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, Calendars: %d",
-		len(feedA.Agencies), len(feedA.Stops), len(feedA.Routes), len(feedA.Trips), len(feedA.Calendars))
-	t.Logf("fuzzy_similar - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, Calendars: %d",
-		len(feedFuzzy.Agencies), len(feedFuzzy.Stops), len(feedFuzzy.Routes), len(feedFuzzy.Trips), len(feedFuzzy.Calendars))
-	t.Logf("merged (fuzzy) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d, Calendars: %d",
-		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips), len(feed.Calendars))
-
-	// With fuzzy detection, similar entities should be merged
-	// So the merged feed should have fewer entities than simple sum
-	simpleSum := len(feedA.Stops) + len(feedFuzzy.Stops)
-	if len(feed.Stops) >= simpleSum {
-		t.Logf("Note: Fuzzy detection did not reduce stop count - may need threshold tuning. Sum=%d, Merged=%d",
-			simpleSum, len(feed.Stops))
-	} else {
-		t.Logf("Fuzzy detection merged similar stops: Sum=%d, Merged=%d (saved %d)",
-			simpleSum, len(feed.Stops), simpleSum-len(feed.Stops))
-	}
+	// Suppress unused variable warnings
+	_ = feedA
+	_ = feedFuzzy
+	_ = feed
 
 	// Validate the merged feed
 	errs := feed.Validate()
@@ -1060,20 +943,6 @@ func TestFuzzyDetection_CompareAllDetectionModes(t *testing.T) {
 		t.Fatalf("Failed to read fuzzy output: %v", err)
 	}
 
-	t.Logf("Go none - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(noneFeed.Agencies), len(noneFeed.Stops), len(noneFeed.Routes), len(noneFeed.Trips))
-	t.Logf("Go identity - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(identityFeed.Agencies), len(identityFeed.Stops), len(identityFeed.Routes), len(identityFeed.Trips))
-	t.Logf("Go fuzzy - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(fuzzyFeed.Agencies), len(fuzzyFeed.Stops), len(fuzzyFeed.Routes), len(fuzzyFeed.Trips))
-
-	// Expected behavior:
-	// - none: keeps all entities (most entities, with prefixes)
-	// - identity: merges entities with same ID (fewer than none)
-	// - fuzzy: merges entities with same ID OR similar properties (fewest)
-	// Note: For overlap test data, identity and fuzzy may have same counts
-	// if all duplicates have matching IDs
-
 	// All should produce valid feeds
 	noneErrs := noneFeed.Validate()
 	identityErrs := identityFeed.Validate()
@@ -1114,15 +983,10 @@ func TestFuzzyDetection_ThreeFeedMerge(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Three-feed merge (Go fuzzy) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 	// Validate
 	goErrs := goFeed.Validate()
 	if len(goErrs) > 0 {
 		t.Errorf("Go three-feed fuzzy merge has validation errors: %v", goErrs)
-	} else {
-		t.Log("Go three-feed fuzzy merge passes validation")
 	}
 }
 
@@ -1153,8 +1017,6 @@ func TestFuzzyDetection_PreservesReferentialIntegrity(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go fuzzy-merged feed passes validation!")
 	}
 }
 
@@ -1179,7 +1041,6 @@ func TestAutoDetection_ProducesValidOutput(t *testing.T) {
 
 	// Use auto-detection to determine strategy
 	detection := strategy.AutoDetectDuplicateDetection(feedA, feedB)
-	t.Logf("Auto-detected strategy for simple_a + simple_b: %v", detection)
 
 	// Merge using the auto-detected strategy
 	goMerger := merge.New(merge.WithDefaultDetection(detection))
@@ -1204,8 +1065,6 @@ func TestAutoDetection_ProducesValidOutput(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go auto-detect merged feed passes validation")
 	}
 }
 
@@ -1224,7 +1083,6 @@ func TestAutoDetection_ChoosesIdentityForOverlap(t *testing.T) {
 	}
 
 	detection := strategy.AutoDetectDuplicateDetection(feedA, feedOverlap)
-	t.Logf("Auto-detected strategy for simple_a + overlap: %v", detection)
 
 	// With overlapping IDs, should auto-detect Identity
 	if detection != strategy.DetectionIdentity {
@@ -1268,7 +1126,6 @@ func TestAutoDetection_ChoosesFuzzyOrNoneForNonOverlap(t *testing.T) {
 	}
 
 	detection := strategy.AutoDetectDuplicateDetection(feedA, feedB)
-	t.Logf("Auto-detected strategy for simple_a + simple_b (non-overlapping): %v", detection)
 
 	// With non-overlapping IDs, should NOT auto-detect Identity
 	if detection == strategy.DetectionIdentity {
@@ -1313,7 +1170,6 @@ func TestAutoDetection_ComparesWithExplicitModes(t *testing.T) {
 
 	// Auto-detect
 	detection := strategy.AutoDetectDuplicateDetection(feedA, feedOverlap)
-	t.Logf("Auto-detected strategy: %v", detection)
 
 	tmpDir := t.TempDir()
 
@@ -1361,7 +1217,6 @@ func TestAutoDetection_ComparesWithExplicitModes(t *testing.T) {
 			len(autoFeed.Trips), len(explicitFeed.Trips))
 	}
 
-	t.Logf("Auto-detected and explicit merge outputs match!")
 }
 
 func TestAutoDetection_ThreeFeedMerge(t *testing.T) {
@@ -1384,7 +1239,6 @@ func TestAutoDetection_ThreeFeedMerge(t *testing.T) {
 
 	// Auto-detect between first two feeds (as the merger would do incrementally)
 	detection := strategy.AutoDetectDuplicateDetection(feeds[0], feeds[1])
-	t.Logf("Auto-detected strategy for three-feed merge: %v", detection)
 
 	// Merge using auto-detected strategy
 	goMerger := merge.New(merge.WithDefaultDetection(detection))
@@ -1403,14 +1257,9 @@ func TestAutoDetection_ThreeFeedMerge(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Three-feed auto-detect merge - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
-
 	errs := feed.Validate()
 	if len(errs) > 0 {
 		t.Errorf("Go three-feed auto-detect merge has validation errors: %v", errs)
-	} else {
-		t.Log("Go three-feed auto-detect merge passes validation")
 	}
 }
 
@@ -1429,12 +1278,6 @@ func TestAutoDetection_FuzzySimilarFeeds(t *testing.T) {
 	}
 
 	detection := strategy.AutoDetectDuplicateDetection(feedA, feedFuzzy)
-	t.Logf("Auto-detected strategy for simple_a + fuzzy_similar: %v", detection)
-
-	// With similar entities but different IDs, should detect Fuzzy
-	if detection == strategy.DetectionNone {
-		t.Log("Note: Auto-detection returned None - entities may not be similar enough")
-	}
 
 	// Verify the merge produces valid output
 	goMerger := merge.New(merge.WithDefaultDetection(detection))
@@ -1452,14 +1295,9 @@ func TestAutoDetection_FuzzySimilarFeeds(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Merged feed (auto-detect=%v) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		detection, len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
-
 	errs := feed.Validate()
 	if len(errs) > 0 {
 		t.Errorf("Auto-detect merge has validation errors: %v", errs)
-	} else {
-		t.Log("Auto-detect merge passes validation")
 	}
 }
 
@@ -1494,8 +1332,6 @@ func TestConfigOptions_GoDebugModeProducesValidOutput(t *testing.T) {
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go debug merged feed passes validation")
 	}
 }
 
@@ -1521,6 +1357,7 @@ func TestConfigOptions_CompareGoOptionsWithJava(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	// Test Go with different options
 	configs := []struct {
@@ -1565,13 +1402,6 @@ func TestConfigOptions_CompareGoOptionsWithJava(t *testing.T) {
 				t.Fatalf("Failed to read %s output: %v", cfg.name, err)
 			}
 
-			// Log comparison with Java
-			t.Logf("%s - Agencies: %d (Java: %d), Stops: %d (Java: %d), Routes: %d (Java: %d)",
-				cfg.name,
-				len(goFeed.Agencies), len(javaFeed.Agencies),
-				len(goFeed.Stops), len(javaFeed.Stops),
-				len(goFeed.Routes), len(javaFeed.Routes))
-
 			// Validate Go output
 			errs := goFeed.Validate()
 			if len(errs) > 0 {
@@ -1614,17 +1444,12 @@ func TestConfigOptions_PerStrategyConfiguration(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Mixed strategy merge - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
-
 	errs := feed.Validate()
 	if len(errs) > 0 {
 		t.Errorf("Go mixed strategy merged feed has validation errors:")
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go mixed strategy merged feed passes validation")
 	}
 }
 
@@ -1665,11 +1490,6 @@ func TestConfigOptions_JavaVsGoIdentityDetection(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Java identity - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Go identity - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 	// Both should produce valid feeds
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
@@ -1679,10 +1499,6 @@ func TestConfigOptions_JavaVsGoIdentityDetection(t *testing.T) {
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go identity merged feed has validation errors: %v", goErrs)
-	}
-
-	if len(javaErrs) == 0 && len(goErrs) == 0 {
-		t.Log("Both identity merged feeds pass validation!")
 	}
 }
 
@@ -1730,11 +1546,6 @@ func TestConfigOptions_CombinedOptionsWithJava(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Three-feed merge (Java) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Three-feed merge (Go combined) - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 	// Both should produce valid feeds
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
@@ -1744,10 +1555,6 @@ func TestConfigOptions_CombinedOptionsWithJava(t *testing.T) {
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go combined merged feed has validation errors: %v", goErrs)
-	}
-
-	if len(javaErrs) == 0 && len(goErrs) == 0 {
-		t.Log("Both merged feeds pass validation!")
 	}
 }
 
@@ -1786,17 +1593,12 @@ func TestConfigOptions_StrategySettersProduceValidOutput(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("All setters merge - Agencies: %d, Stops: %d, Routes: %d, Trips: %d",
-		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
-
 	errs := feed.Validate()
 	if len(errs) > 0 {
 		t.Errorf("Go all setters merged feed has validation errors:")
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go all setters merged feed passes validation")
 	}
 }
 
@@ -1841,18 +1643,12 @@ func TestCLI_JavaVsGoBasicMerge(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	// Compare entity counts
-	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 	// Validate both
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
 
 	if len(javaErrs) > 0 {
-		t.Logf("Java feed validation errors: %d", len(javaErrs))
+		t.Errorf("Java feed validation errors: %d", len(javaErrs))
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go feed validation errors: %d", len(goErrs))
@@ -1893,18 +1689,12 @@ func TestCLI_JavaVsGoIdentityDetection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	// Compare entity counts - identity detection should reduce duplicates
-	t.Logf("With Identity Detection:")
-	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
 	// Validate Go output
 	errs := goFeed.Validate()
@@ -1950,18 +1740,12 @@ func TestCLI_JavaVsGoThreeFeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	// Compare entity counts
-	t.Logf("Three-feed merge:")
-	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
 	// Validate Go output
 	errs := goFeed.Validate()
@@ -2004,9 +1788,6 @@ func TestCLI_GoValidOutputWithAllModes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to read Go output: %v", err)
 			}
-
-			t.Logf("%s detection: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-				mode.name, len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
 
 			errs := feed.Validate()
 			if len(errs) > 0 {
@@ -2055,18 +1836,12 @@ func TestCLI_JavaVsGoFuzzyDetection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	// Compare entity counts - fuzzy should merge similar entities
-	t.Logf("With Fuzzy Detection:")
-	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
 	// Validate Go output
 	errs := goFeed.Validate()
@@ -2106,17 +1881,12 @@ func TestCLI_OutputValidation(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Comprehensive merge: Agencies=%d, Stops=%d, Routes=%d, Trips=%d, StopTimes=%d",
-		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips), len(feed.StopTimes))
-
 	errs := feed.Validate()
 	if len(errs) > 0 {
 		t.Errorf("Go comprehensive merged feed has %d validation errors:", len(errs))
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go comprehensive merged feed passes validation")
 	}
 
 	// Verify output file exists and has reasonable size
@@ -2127,7 +1897,6 @@ func TestCLI_OutputValidation(t *testing.T) {
 	if info.Size() == 0 {
 		t.Error("Output file has zero size")
 	}
-	t.Logf("Output file size: %d bytes", info.Size())
 }
 
 // ============================================================================
@@ -2195,17 +1964,12 @@ func TestMergeRealWorldFeeds(t *testing.T) {
 				t.Fatalf("Failed to read Go output: %v", err)
 			}
 
-			t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-				len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-			t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-				len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 			// Both should produce valid output
 			javaErrs := javaFeed.Validate()
 			goErrs := goFeed.Validate()
 
 			if len(javaErrs) > 0 {
-				t.Logf("Java feed validation errors: %d", len(javaErrs))
+				t.Errorf("Java feed validation errors: %d", len(javaErrs))
 			}
 			if len(goErrs) > 0 {
 				t.Errorf("Go feed validation errors: %d", len(goErrs))
@@ -2253,16 +2017,12 @@ func TestMergeLargeFeed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Large ID merge - Java: Agencies=%d, Stops=%d, Routes=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes))
-	t.Logf("Large ID merge - Go:   Agencies=%d, Stops=%d, Routes=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes))
 
 	// Validate Go output
 	errs := goFeed.Validate()
@@ -2325,17 +2085,12 @@ func TestMergeThreeFeedsVariations(t *testing.T) {
 				t.Fatalf("Failed to read Go output: %v", err)
 			}
 
-			t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-				len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-			t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-				len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
-
 			// Validate
 			javaErrs := javaFeed.Validate()
 			goErrs := goFeed.Validate()
 
 			if len(javaErrs) > 0 {
-				t.Logf("Java validation errors: %d", len(javaErrs))
+				t.Errorf("Java validation errors: %d", len(javaErrs))
 			}
 			if len(goErrs) > 0 {
 				t.Errorf("Go validation errors: %d", len(goErrs))
@@ -2389,39 +2144,18 @@ func TestMergeFeedWithAllOptionalFiles(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	// Log entity counts including optional file entities
-	t.Logf("Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d, Shapes=%d, Transfers=%d, Frequencies=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips),
-		len(javaFeed.Shapes), len(javaFeed.Transfers), len(javaFeed.Frequencies))
-	t.Logf("Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d, Shapes=%d, Transfers=%d, Frequencies=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips),
-		len(goFeed.Shapes), len(goFeed.Transfers), len(goFeed.Frequencies))
-
 	// Validate
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
 
 	if len(javaErrs) > 0 {
-		t.Logf("Java validation errors: %d", len(javaErrs))
+		t.Errorf("Java validation errors: %d", len(javaErrs))
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go feed with all optional files has validation errors:")
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go feed with all optional files passes validation")
-	}
-
-	// Verify optional entities exist in merged output
-	if len(goFeed.Shapes) == 0 {
-		t.Log("Note: No shapes in merged output")
-	}
-	if len(goFeed.Transfers) == 0 {
-		t.Log("Note: No transfers in merged output")
-	}
-	if len(goFeed.Frequencies) == 0 {
-		t.Log("Note: No frequencies in merged output")
 	}
 }
 
@@ -2449,17 +2183,12 @@ func TestMergeEmptyOptionalFiles(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Minimal merge: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(feed.Agencies), len(feed.Stops), len(feed.Routes), len(feed.Trips))
-
 	errs := feed.Validate()
 	if len(errs) > 0 {
 		t.Errorf("Go merge with empty optional files has validation errors:")
 		for _, e := range errs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go merge with empty optional files passes validation")
 	}
 }
 
@@ -2496,16 +2225,12 @@ func TestMergeMissingOptionalFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Java: Shapes=%d, Transfers=%d, Frequencies=%d, FareAttributes=%d",
-		len(javaFeed.Shapes), len(javaFeed.Transfers), len(javaFeed.Frequencies), len(javaFeed.FareAttributes))
-	t.Logf("Go:   Shapes=%d, Transfers=%d, Frequencies=%d, FareAttributes=%d",
-		len(goFeed.Shapes), len(goFeed.Transfers), len(goFeed.Frequencies), len(goFeed.FareAttributes))
 
 	// Validate
 	goErrs := goFeed.Validate()
@@ -2514,8 +2239,6 @@ func TestMergeMissingOptionalFiles(t *testing.T) {
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go merge with mixed optional files passes validation")
 	}
 }
 
@@ -2560,39 +2283,18 @@ func TestMergeUnicodeContent(t *testing.T) {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
 
-	t.Logf("Unicode merge - Java: Agencies=%d, Stops=%d, Routes=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes))
-	t.Logf("Unicode merge - Go:   Agencies=%d, Stops=%d, Routes=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes))
-
 	// Validate
 	javaErrs := javaFeed.Validate()
 	goErrs := goFeed.Validate()
 
 	if len(javaErrs) > 0 {
-		t.Logf("Java validation errors: %d", len(javaErrs))
+		t.Errorf("Java validation errors: %d", len(javaErrs))
 	}
 	if len(goErrs) > 0 {
 		t.Errorf("Go merge with unicode content has validation errors:")
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go merge with unicode content passes validation")
-	}
-
-	// Verify unicode content is preserved by checking stop names
-	hasUnicode := false
-	for _, stop := range goFeed.Stops {
-		// Check for German characters or other unicode
-		if strings.Contains(stop.Name, "Munchen") || strings.Contains(stop.Name, "Bayern") {
-			hasUnicode = true
-			t.Logf("Unicode stop found: %s", stop.Name)
-			break
-		}
-	}
-	if !hasUnicode {
-		t.Log("Note: No unicode stop names found in merged output")
 	}
 }
 
@@ -2631,16 +2333,12 @@ func TestMergeLargeIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Large IDs - Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Large IDs - Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
 	// Validate
 	goErrs := goFeed.Validate()
@@ -2649,21 +2347,6 @@ func TestMergeLargeIDs(t *testing.T) {
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go merge with large IDs passes validation")
-	}
-
-	// Verify large IDs are preserved
-	hasLargeID := false
-	for _, stop := range goFeed.Stops {
-		if len(string(stop.ID)) > 20 {
-			hasLargeID = true
-			t.Logf("Large ID stop found: %s", stop.ID)
-			break
-		}
-	}
-	if !hasLargeID {
-		t.Log("Note: No large ID stops found - may have been prefixed")
 	}
 }
 
@@ -2702,16 +2385,12 @@ func TestMergeSpecialCharactersInIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Special chars - Java: Agencies=%d, Stops=%d, Routes=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes))
-	t.Logf("Special chars - Go:   Agencies=%d, Stops=%d, Routes=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes))
 
 	// Validate
 	goErrs := goFeed.Validate()
@@ -2720,23 +2399,7 @@ func TestMergeSpecialCharactersInIDs(t *testing.T) {
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go merge with special characters passes validation")
 	}
-
-	// Verify special characters in IDs are handled
-	hasDots := false
-	hasDashes := false
-	for _, stop := range goFeed.Stops {
-		idStr := string(stop.ID)
-		if strings.Contains(idStr, ".") {
-			hasDots = true
-		}
-		if strings.Contains(idStr, "-") {
-			hasDashes = true
-		}
-	}
-	t.Logf("Special chars found - dots: %v, dashes: %v", hasDots, hasDashes)
 }
 
 func TestMergeAllDetectionModesWithEdgeCases(t *testing.T) {
@@ -2780,9 +2443,6 @@ func TestMergeAllDetectionModesWithEdgeCases(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to read Go output: %v", err)
 				}
-
-				t.Logf("%s with %s detection: Agencies=%d, Stops=%d, Routes=%d",
-					feed.name, mode.name, len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes))
 
 				errs := goFeed.Validate()
 				if len(errs) > 0 {
@@ -2828,16 +2488,12 @@ func TestMergeFourFeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Java output: %v", err)
 	}
+	_ = javaFeed
 
 	goFeed, err := gtfs.ReadFromPath(goOutput)
 	if err != nil {
 		t.Fatalf("Failed to read Go output: %v", err)
 	}
-
-	t.Logf("Four-feed merge - Java: Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(javaFeed.Agencies), len(javaFeed.Stops), len(javaFeed.Routes), len(javaFeed.Trips))
-	t.Logf("Four-feed merge - Go:   Agencies=%d, Stops=%d, Routes=%d, Trips=%d",
-		len(goFeed.Agencies), len(goFeed.Stops), len(goFeed.Routes), len(goFeed.Trips))
 
 	// Validate
 	goErrs := goFeed.Validate()
@@ -2846,7 +2502,5 @@ func TestMergeFourFeeds(t *testing.T) {
 		for _, e := range goErrs {
 			t.Errorf("  - %v", e)
 		}
-	} else {
-		t.Log("Go four-feed merge passes validation")
 	}
 }

@@ -163,12 +163,12 @@ func TestWithDefaultRenaming(t *testing.T) {
 
 			// Verify the renaming strategy was applied (context prefixing)
 			if tt.renaming == strategy.RenameContext {
-				// Should have "shared" (from feedB, processed first) and "a_shared" (from feedA)
+				// Should have "shared" (from feedB, processed first) and "a-shared" (from feedA)
 				if _, ok := merged.Agencies["shared"]; !ok {
 					t.Error("expected agency with ID 'shared'")
 				}
-				if _, ok := merged.Agencies["a_shared"]; !ok {
-					t.Error("expected agency with prefixed ID 'a_shared'")
+				if _, ok := merged.Agencies["a-shared"]; !ok {
+					t.Error("expected agency with prefixed ID 'a-shared'")
 				}
 			}
 		})

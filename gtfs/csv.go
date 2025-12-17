@@ -141,6 +141,21 @@ func (r *CSVRow) GetInt(column string) int {
 	return val
 }
 
+// GetIntPtr returns the value of the field as a pointer to int.
+// Returns nil if the field is empty or missing, otherwise returns a pointer to the parsed value.
+// Use this for optional integer fields where 0 is a meaningful value distinct from "not set".
+func (r *CSVRow) GetIntPtr(column string) *int {
+	s := r.Get(column)
+	if s == "" {
+		return nil
+	}
+	val, err := strconv.Atoi(s)
+	if err != nil {
+		return nil
+	}
+	return &val
+}
+
 // GetFloat returns the value of the field as a float64.
 // Returns 0.0 if the field is empty, missing, or not a valid float.
 func (r *CSVRow) GetFloat(column string) float64 {

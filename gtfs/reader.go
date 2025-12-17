@@ -333,6 +333,9 @@ func readFileIntoFeed(feed *Feed, opener func(string) (io.ReadCloser, error), fi
 		return fmt.Errorf("reading header: %w", err)
 	}
 
+	// Track which columns were present in this file
+	feed.AddColumnSet(filename, header)
+
 	for {
 		record, err := reader.ReadRecord()
 		if err == io.EOF {
@@ -367,6 +370,9 @@ func readOptionalFileIntoFeed(feed *Feed, opener func(string) (io.ReadCloser, er
 		}
 		return fmt.Errorf("reading header: %w", err)
 	}
+
+	// Track which columns were present in this file
+	feed.AddColumnSet(filename, header)
 
 	for {
 		record, err := reader.ReadRecord()

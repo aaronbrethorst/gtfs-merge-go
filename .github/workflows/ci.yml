@@ -59,6 +59,7 @@ jobs:
 
   compare-java:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -79,5 +80,16 @@ jobs:
       - name: Download JAR if not cached
         run: ./testdata/java/download.sh
 
+      - name: Cache Real-World GTFS Feeds
+        uses: actions/cache@v4
+        with:
+          path: testdata/realworld/*.zip
+          key: realworld-gtfs-feeds-v1
+          restore-keys: |
+            realworld-gtfs-feeds-
+
+      - name: Download Real-World GTFS Feeds
+        run: ./testdata/realworld/download.sh
+
       - name: Run Java comparison tests
-        run: go test -v -tags=java ./compare/...
+        run: go test -v -tags=java -timeout=60m ./compare/...

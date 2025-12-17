@@ -456,7 +456,7 @@ func TestMergeAppliesPrefixToSecondFeed(t *testing.T) {
 
 	// Then: second feed entities get prefix, first feed (processed first = feedB) has no prefix
 	// Feeds are processed in reverse order, so feedB is processed first (no prefix)
-	// and feedA is processed second (gets "a_" prefix)
+	// and feedA is processed second (gets "a-" prefix)
 	if len(merged.Agencies) != 2 {
 		t.Errorf("expected 2 agencies (both preserved with different IDs), got %d", len(merged.Agencies))
 	}
@@ -466,9 +466,9 @@ func TestMergeAppliesPrefixToSecondFeed(t *testing.T) {
 		t.Error("expected agency with original ID 'shared_id' from second feed (processed first)")
 	}
 
-	// feedA was processed second (index 1) -> "a_" prefix
-	if _, ok := merged.Agencies["a_shared_id"]; !ok {
-		t.Error("expected agency with prefixed ID 'a_shared_id' from first feed (processed second)")
+	// feedA was processed second (index 1) -> "a-" prefix
+	if _, ok := merged.Agencies["a-shared_id"]; !ok {
+		t.Error("expected agency with prefixed ID 'a-shared_id' from first feed (processed second)")
 	}
 
 	// Same for stops
@@ -557,13 +557,13 @@ func TestMergePrefixSequence(t *testing.T) {
 	}
 
 	// Then: prefixes are applied correctly
-	// Feeds processed in reverse order: C (index 0, no prefix), B (index 1, a_), A (index 2, b_)
+	// Feeds processed in reverse order: C (index 0, no prefix), B (index 1, a-), A (index 2, b-)
 	if len(merged.Agencies) != 3 {
 		t.Errorf("expected 3 agencies, got %d", len(merged.Agencies))
 	}
 
 	// Check expected IDs exist
-	expectedIDs := []gtfs.AgencyID{"shared", "a_shared", "b_shared"}
+	expectedIDs := []gtfs.AgencyID{"shared", "a-shared", "b-shared"}
 	for _, id := range expectedIDs {
 		if _, ok := merged.Agencies[id]; !ok {
 			t.Errorf("expected agency with ID %s", id)
@@ -574,11 +574,11 @@ func TestMergePrefixSequence(t *testing.T) {
 	if merged.Agencies["shared"].Name != "Agency C" {
 		t.Errorf("expected 'shared' to be Agency C (processed first), got %s", merged.Agencies["shared"].Name)
 	}
-	if merged.Agencies["a_shared"].Name != "Agency B" {
-		t.Errorf("expected 'a_shared' to be Agency B (processed second), got %s", merged.Agencies["a_shared"].Name)
+	if merged.Agencies["a-shared"].Name != "Agency B" {
+		t.Errorf("expected 'a-shared' to be Agency B (processed second), got %s", merged.Agencies["a-shared"].Name)
 	}
-	if merged.Agencies["b_shared"].Name != "Agency A" {
-		t.Errorf("expected 'b_shared' to be Agency A (processed third), got %s", merged.Agencies["b_shared"].Name)
+	if merged.Agencies["b-shared"].Name != "Agency A" {
+		t.Errorf("expected 'b-shared' to be Agency A (processed third), got %s", merged.Agencies["b-shared"].Name)
 	}
 }
 

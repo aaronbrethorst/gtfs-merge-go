@@ -34,6 +34,19 @@ type MergeContext struct {
 	ShapeIDMapping   map[gtfs.ShapeID]gtfs.ShapeID
 	FareIDMapping    map[gtfs.FareID]gtfs.FareID
 	AreaIDMapping    map[gtfs.AreaID]gtfs.AreaID
+
+	// ShapeSequenceCounter is a global counter for shape point sequences.
+	// Java replaces original sequences with a global counter that increments
+	// across all shape points in a feed.
+	ShapeSequenceCounter int
+}
+
+// NextShapeSequence returns the next shape point sequence number.
+// This mimics Java's behavior where all shape points get globally incrementing
+// sequence numbers rather than preserving original sequences.
+func (ctx *MergeContext) NextShapeSequence() int {
+	ctx.ShapeSequenceCounter++
+	return ctx.ShapeSequenceCounter
 }
 
 // NewMergeContext creates a new merge context

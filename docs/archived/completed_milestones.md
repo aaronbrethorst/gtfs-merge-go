@@ -48,7 +48,7 @@
 
 #### Milestone 1.1.2 - Quality Assurance Process
 - Defined 5-step QA process: code review, local CI checks, verification, commit, tracking update
-- Added milestone tracking section at end of spec.md
+- Added milestone tracking section at end of spec.md (now archived to docs/archived/spec.md)
 - Code review suggested optional improvements (failure handling, date column) for future consideration
 - This QA process will be applied to all future milestones
 
