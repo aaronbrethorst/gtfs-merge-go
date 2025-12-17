@@ -63,9 +63,8 @@ func New(opts ...Option) *Merger {
 }
 
 // MergeFiles merges multiple GTFS files into one output file.
-// IMPORTANT: Input feeds are processed in REVERSE order (newest/last first).
-// This ensures entities from newer feeds are added first and older duplicates
-// are potentially dropped.
+// IMPORTANT: Input feeds are processed in REVERSE order (last feed first) to match Java behavior.
+// The last feed gets no prefix, earlier feeds get prefixes (a-, b-, c-, etc.) when IDs collide.
 func (m *Merger) MergeFiles(inputPaths []string, outputPath string) error {
 	if len(inputPaths) == 0 {
 		return ErrNoInputFeeds
@@ -92,7 +91,7 @@ func (m *Merger) MergeFiles(inputPaths []string, outputPath string) error {
 }
 
 // MergeFeeds merges multiple Feed objects into a single Feed.
-// IMPORTANT: Feeds are processed in REVERSE order (last element first).
+// IMPORTANT: Feeds are processed in REVERSE order (last element first) to match Java behavior.
 func (m *Merger) MergeFeeds(feeds []*gtfs.Feed) (*gtfs.Feed, error) {
 	if len(feeds) == 0 {
 		return nil, ErrNoInputFeeds
@@ -104,10 +103,12 @@ func (m *Merger) MergeFeeds(feeds []*gtfs.Feed) (*gtfs.Feed, error) {
 	// Shared counter for shape sequences - persists across all feeds to match Java behavior
 	sharedShapeCounter := 0
 
-	// Process feeds in reverse order (last feed first, which gets no prefix)
+	// Process feeds in reverse order (last feed first) to match Java behavior.
+	// The prefix is based on the ORIGINAL array index, not the processing position.
+	// Java uses: index 0 → "a-", index 1 → "b-", etc.
+	// The prefix is only applied when there's an ID collision during merge.
 	for i := len(feeds) - 1; i >= 0; i-- {
-		feedIndex := len(feeds) - 1 - i // 0 for last feed, 1 for second-to-last, etc.
-		prefix := GetPrefixForIndex(feedIndex)
+		prefix := GetPrefixForIndex(i) // Use original array index for prefix
 
 		ctx := strategy.NewMergeContext(feeds[i], target, prefix)
 		ctx.SetSharedShapeCounter(&sharedShapeCounter)

@@ -539,7 +539,7 @@ func TestMergePrefixUpdatesAllReferences(t *testing.T) {
 }
 
 func TestMergePrefixSequence(t *testing.T) {
-	// Given: three feeds
+	// Given: three feeds with overlapping IDs
 	feedA := gtfs.NewFeed()
 	feedA.Agencies["shared"] = &gtfs.Agency{ID: "shared", Name: "Agency A", URL: "http://a.com", Timezone: "UTC"}
 
@@ -556,8 +556,11 @@ func TestMergePrefixSequence(t *testing.T) {
 		t.Fatalf("merge failed: %v", err)
 	}
 
-	// Then: prefixes are applied correctly
-	// Feeds processed in reverse order: C (index 0, no prefix), B (index 1, a-), A (index 2, b-)
+	// Then: prefixes are applied correctly based on ORIGINAL array index (Java behavior)
+	// Feeds processed in reverse order: C first, B second, A third
+	// - C (index 2) processed first: no collision → "shared"
+	// - B (index 1) collision → prefix from index 1 → "b-shared"
+	// - A (index 0) collision → prefix from index 0 → "a-shared"
 	if len(merged.Agencies) != 3 {
 		t.Errorf("expected 3 agencies, got %d", len(merged.Agencies))
 	}
@@ -570,15 +573,15 @@ func TestMergePrefixSequence(t *testing.T) {
 		}
 	}
 
-	// Verify the names match the expected prefix order
+	// Verify the names match the expected prefix order (Java-compatible)
 	if merged.Agencies["shared"].Name != "Agency C" {
-		t.Errorf("expected 'shared' to be Agency C (processed first), got %s", merged.Agencies["shared"].Name)
+		t.Errorf("expected 'shared' to be Agency C (processed first, no prefix), got %s", merged.Agencies["shared"].Name)
 	}
-	if merged.Agencies["a-shared"].Name != "Agency B" {
-		t.Errorf("expected 'a-shared' to be Agency B (processed second), got %s", merged.Agencies["a-shared"].Name)
+	if merged.Agencies["b-shared"].Name != "Agency B" {
+		t.Errorf("expected 'b-shared' to be Agency B (index 1), got %s", merged.Agencies["b-shared"].Name)
 	}
-	if merged.Agencies["b-shared"].Name != "Agency A" {
-		t.Errorf("expected 'b-shared' to be Agency A (processed third), got %s", merged.Agencies["b-shared"].Name)
+	if merged.Agencies["a-shared"].Name != "Agency A" {
+		t.Errorf("expected 'a-shared' to be Agency A (index 0), got %s", merged.Agencies["a-shared"].Name)
 	}
 }
 

@@ -140,6 +140,10 @@ func ParseTransfer(row *CSVRow) *Transfer {
 		ToStopID:        StopID(row.Get("to_stop_id")),
 		TransferType:    row.GetInt("transfer_type"),
 		MinTransferTime: row.GetInt("min_transfer_time"),
+		FromRouteID:     RouteID(row.Get("from_route_id")),
+		ToRouteID:       RouteID(row.Get("to_route_id")),
+		FromTripID:      TripID(row.Get("from_trip_id")),
+		ToTripID:        TripID(row.Get("to_trip_id")),
 	}
 }
 
@@ -153,6 +157,8 @@ func ParseFareAttribute(row *CSVRow) *FareAttribute {
 		Transfers:        row.GetInt("transfers"),
 		AgencyID:         AgencyID(row.Get("agency_id")),
 		TransferDuration: row.GetInt("transfer_duration"),
+		YouthPrice:       row.GetFloat("youth_price"),
+		SeniorPrice:      row.GetFloat("senior_price"),
 	}
 }
 

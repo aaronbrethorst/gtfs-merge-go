@@ -133,6 +133,11 @@ func formatFloat(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
+// formatPriceFloat formats a price with 6 decimal places, including when the value is 0
+func formatPriceFloat(v float64) string {
+	return strconv.FormatFloat(v, 'f', 6, 64)
+}
+
 func formatBool(v bool) string {
 	if v {
 		return "1"
@@ -367,7 +372,7 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		{"route_url", func(r *Route) string { return r.URL }},
 		{"route_color", func(r *Route) string { return r.Color }},
 		{"route_text_color", func(r *Route) string { return r.TextColor }},
-		{"route_sort_order", func(r *Route) string { return formatOptionalInt(r.SortOrder) }},
+		{"route_sort_order", func(r *Route) string { return formatInt(r.SortOrder) }},
 		{"continuous_pickup", func(r *Route) string { return formatOptionalInt(r.ContinuousPickup) }},
 		{"continuous_drop_off", func(r *Route) string { return formatOptionalInt(r.ContinuousDropOff) }},
 	}
@@ -579,7 +584,7 @@ func writeStopTimes(zw *zip.Writer, feed *Feed) error {
 		{"continuous_pickup", func(st *StopTime) string { return formatOptionalInt(st.ContinuousPickup) }},
 		{"continuous_drop_off", func(st *StopTime) string { return formatOptionalInt(st.ContinuousDropOff) }},
 		{"shape_dist_traveled", func(st *StopTime) string { return formatFloat(st.ShapeDistTraveled) }},
-		{"timepoint", func(st *StopTime) string { return formatOptionalInt(st.Timepoint) }},
+		{"timepoint", func(st *StopTime) string { return formatInt(st.Timepoint) }},
 	}
 
 	// Required columns are always included
@@ -947,6 +952,10 @@ func writeTransfers(zw *zip.Writer, feed *Feed) error {
 		{"to_stop_id", func(t *Transfer) string { return string(t.ToStopID) }},
 		{"transfer_type", func(t *Transfer) string { return formatOptionalInt(t.TransferType) }},
 		{"min_transfer_time", func(t *Transfer) string { return formatOptionalInt(t.MinTransferTime) }},
+		{"from_route_id", func(t *Transfer) string { return string(t.FromRouteID) }},
+		{"to_route_id", func(t *Transfer) string { return string(t.ToRouteID) }},
+		{"from_trip_id", func(t *Transfer) string { return string(t.FromTripID) }},
+		{"to_trip_id", func(t *Transfer) string { return string(t.ToTripID) }},
 	}
 
 	// Required columns are always included
@@ -954,29 +963,13 @@ func writeTransfers(zw *zip.Writer, feed *Feed) error {
 		"from_stop_id": true, "to_stop_id": true,
 	}
 
-	// Optional columns: only include if at least one row has non-default value
-	optionalCols := []string{"transfer_type", "min_transfer_time"}
-	checker := newColumnChecker(optionalCols)
-
-	// Pre-scan to find which optional columns have non-default values
-	for _, t := range feed.Transfers {
-		if t.TransferType != 0 {
-			checker.markNonDefault("transfer_type")
-		}
-		if t.MinTransferTime != 0 {
-			checker.markNonDefault("min_transfer_time")
-		}
-		if checker.allFound() {
-			break
-		}
-	}
-
-	// Filter columns: include if required OR (in source AND has non-default value)
+	// Filter columns: include if required OR present in source data
+	// Match Java behavior: include columns if they were in any source feed, even if all values are default
 	var activeCols []colDef
 	for _, col := range allCols {
 		if requiredCols[col.name] {
 			activeCols = append(activeCols, col)
-		} else if feed.HasColumn("transfers.txt", col.name) && checker.hasNonDefaultValue(col.name) {
+		} else if feed.HasColumn("transfers.txt", col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -1019,12 +1012,14 @@ func writeFareAttributes(zw *zip.Writer, feed *Feed) error {
 	}
 	allCols := []colDef{
 		{"fare_id", func(fa *FareAttribute) string { return string(fa.FareID) }},
-		{"price", func(fa *FareAttribute) string { return strconv.FormatFloat(fa.Price, 'f', 2, 64) }},
+		{"price", func(fa *FareAttribute) string { return strconv.FormatFloat(fa.Price, 'f', 6, 64) }},
 		{"currency_type", func(fa *FareAttribute) string { return fa.CurrencyType }},
-		{"payment_method", func(fa *FareAttribute) string { return formatOptionalInt(fa.PaymentMethod) }},
-		{"transfers", func(fa *FareAttribute) string { return formatOptionalInt(fa.Transfers) }},
+		{"payment_method", func(fa *FareAttribute) string { return formatInt(fa.PaymentMethod) }}, // Always output, 0 is valid
+		{"transfers", func(fa *FareAttribute) string { return formatOptionalInt(fa.Transfers) }},  // Empty means unlimited
 		{"agency_id", func(fa *FareAttribute) string { return string(fa.AgencyID) }},
 		{"transfer_duration", func(fa *FareAttribute) string { return formatOptionalInt(fa.TransferDuration) }},
+		{"youth_price", func(fa *FareAttribute) string { return formatPriceFloat(fa.YouthPrice) }},   // Always output with 6 decimals
+		{"senior_price", func(fa *FareAttribute) string { return formatPriceFloat(fa.SeniorPrice) }}, // Always output with 6 decimals
 	}
 
 	// Required columns are always included
@@ -1032,35 +1027,13 @@ func writeFareAttributes(zw *zip.Writer, feed *Feed) error {
 		"fare_id": true, "price": true, "currency_type": true,
 	}
 
-	// Optional columns: only include if at least one row has non-default value
-	optionalCols := []string{"payment_method", "transfers", "agency_id", "transfer_duration"}
-	checker := newColumnChecker(optionalCols)
-
-	// Pre-scan to find which optional columns have non-default values
-	for _, fa := range feed.FareAttributes {
-		if fa.PaymentMethod != 0 {
-			checker.markNonDefault("payment_method")
-		}
-		if fa.Transfers != 0 {
-			checker.markNonDefault("transfers")
-		}
-		if fa.AgencyID != "" {
-			checker.markNonDefault("agency_id")
-		}
-		if fa.TransferDuration != 0 {
-			checker.markNonDefault("transfer_duration")
-		}
-		if checker.allFound() {
-			break
-		}
-	}
-
-	// Filter columns: include if required OR (in source AND has non-default value)
+	// Filter columns: include if required OR present in source data
+	// Match Java behavior: include columns if they were in any source feed, even if all values are default
 	var activeCols []colDef
 	for _, col := range allCols {
 		if requiredCols[col.name] {
 			activeCols = append(activeCols, col)
-		} else if feed.HasColumn("fare_attributes.txt", col.name) && checker.hasNonDefaultValue(col.name) {
+		} else if feed.HasColumn("fare_attributes.txt", col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}

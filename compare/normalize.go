@@ -50,10 +50,11 @@ var gtfsColumnOrders = map[string][]string{
 	},
 	"transfers.txt": {
 		"from_stop_id", "to_stop_id", "transfer_type", "min_transfer_time",
+		"from_route_id", "to_route_id", "from_trip_id", "to_trip_id",
 	},
 	"fare_attributes.txt": {
 		"fare_id", "price", "currency_type", "payment_method", "transfers",
-		"agency_id", "transfer_duration",
+		"agency_id", "transfer_duration", "youth_price", "senior_price",
 	},
 	"fare_rules.txt": {
 		"fare_id", "route_id", "origin_id", "destination_id", "contains_id",
@@ -103,6 +104,8 @@ var floatColumns = map[string]bool{
 	"max_slope":           true,
 	"min_width":           true,
 	"price":               true,
+	"youth_price":         true,
+	"senior_price":        true,
 }
 
 // GTFSColumnOrder returns the canonical column order for a GTFS file
