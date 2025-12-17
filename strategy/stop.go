@@ -115,6 +115,7 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 			PlatformCode:       stop.PlatformCode,
 		}
 		ctx.Target.Stops[newID] = newStop
+		ctx.JustAddedStops[newID] = struct{}{} // Track as just added for fuzzy matching
 	}
 
 	return nil
@@ -137,6 +138,10 @@ func (s *StopMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Stop)
 			targets,
 			func(stop *gtfs.Stop) gtfs.StopID { return stop.ID },
 			func(target *gtfs.Stop) float64 {
+				// Skip stops added in this feed (matching Java behavior)
+				if _, justAdded := ctx.JustAddedStops[target.ID]; justAdded {
+					return 0.0
+				}
 				nameScore := stopNameScore(source, target)
 				distScore := stopDistanceScore(source, target)
 				return nameScore * distScore
@@ -151,6 +156,11 @@ func (s *StopMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Stop)
 	var bestScore float64
 
 	for _, target := range targets {
+		// Skip stops added in this feed (matching Java behavior)
+		if _, justAdded := ctx.JustAddedStops[target.ID]; justAdded {
+			continue
+		}
+
 		// Calculate combined score: name match * distance score
 		nameScore := stopNameScore(source, target)
 		distScore := stopDistanceScore(source, target)

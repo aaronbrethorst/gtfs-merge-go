@@ -127,7 +127,9 @@ func getRealWorldFeedDir() string {
 	return filepath.Join(dir, "..", "testdata", "realworld")
 }
 
-// createGoMergerWithDetection creates a Go merger with the specified detection mode
+// createGoMergerWithDetection creates a Go merger with the specified detection mode.
+// This matches Java CLI behavior where --file=stops.txt --duplicateDetection={mode}
+// applies the detection mode only to stops.txt, not all entity types.
 func createGoMergerWithDetection(detection string) *merge.Merger {
 	var mode strategy.DuplicateDetection
 	switch detection {
@@ -141,5 +143,8 @@ func createGoMergerWithDetection(detection string) *merge.Merger {
 		mode = strategy.DetectionNone
 	}
 
-	return merge.New(merge.WithDefaultDetection(mode))
+	// Match Java CLI behavior: only apply to stops.txt
+	// Java uses: --file=stops.txt --duplicateDetection={mode}
+	// Other entity types use their default (NONE) mode
+	return merge.New(merge.WithFileDetection("stops.txt", mode))
 }

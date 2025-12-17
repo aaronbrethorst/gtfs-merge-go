@@ -260,6 +260,13 @@ func (m *Merger) SetFeedInfoStrategy(s strategy.EntityMergeStrategy) {
 	m.feedInfoStrategy = s
 }
 
+// SetDuplicateDetectionForFile sets duplicate detection for a specific GTFS file
+func (m *Merger) SetDuplicateDetectionForFile(filename string, d strategy.DuplicateDetection) {
+	if s := m.GetStrategyForFile(filename); s != nil {
+		s.SetDuplicateDetection(d)
+	}
+}
+
 // SetAreaStrategy sets the area merge strategy
 func (m *Merger) SetAreaStrategy(s strategy.EntityMergeStrategy) {
 	m.areaStrategy = s

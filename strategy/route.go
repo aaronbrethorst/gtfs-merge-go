@@ -108,6 +108,7 @@ func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
 			ContinuousDropOff: route.ContinuousDropOff,
 		}
 		ctx.Target.Routes[newID] = newRoute
+		ctx.JustAddedRoutes[newID] = struct{}{} // Track as just added for fuzzy matching
 	}
 
 	return nil
@@ -130,6 +131,10 @@ func (s *RouteMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Rout
 			targets,
 			func(route *gtfs.Route) gtfs.RouteID { return route.ID },
 			func(target *gtfs.Route) float64 {
+				// Skip routes added in this feed (matching Java behavior)
+				if _, justAdded := ctx.JustAddedRoutes[target.ID]; justAdded {
+					return 0.0
+				}
 				agencyScore := routeAgencyScore(ctx, source, target)
 				shortNameScore := routePropertyScore(source.ShortName, target.ShortName)
 				longNameScore := routePropertyScore(source.LongName, target.LongName)
@@ -146,6 +151,11 @@ func (s *RouteMergeStrategy) findFuzzyMatch(ctx *MergeContext, source *gtfs.Rout
 	var bestScore float64
 
 	for _, target := range targets {
+		// Skip routes added in this feed (matching Java behavior)
+		if _, justAdded := ctx.JustAddedRoutes[target.ID]; justAdded {
+			continue
+		}
+
 		// Calculate combined score: agency * shortName * longName * stopsInCommon
 		agencyScore := routeAgencyScore(ctx, source, target)
 		shortNameScore := routePropertyScore(source.ShortName, target.ShortName)

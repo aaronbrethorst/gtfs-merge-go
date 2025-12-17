@@ -35,6 +35,14 @@ type MergeContext struct {
 	FareIDMapping    map[gtfs.FareID]gtfs.FareID
 	AreaIDMapping    map[gtfs.AreaID]gtfs.AreaID
 
+	// JustAddedStops tracks stop IDs added in the current feed.
+	// Used to prevent within-feed fuzzy matching (matches Java behavior).
+	JustAddedStops map[gtfs.StopID]struct{}
+
+	// JustAddedRoutes tracks route IDs added in the current feed.
+	// Used to prevent within-feed fuzzy matching (matches Java behavior).
+	JustAddedRoutes map[gtfs.RouteID]struct{}
+
 	// ShapeSequenceCounter is a counter for shape point sequences within this context.
 	// Deprecated: Use sharedShapeCounter for multi-feed merges to match Java behavior.
 	ShapeSequenceCounter int
@@ -81,6 +89,8 @@ func NewMergeContext(source, target *gtfs.Feed, prefix string) *MergeContext {
 		ShapeIDMapping:    make(map[gtfs.ShapeID]gtfs.ShapeID),
 		FareIDMapping:     make(map[gtfs.FareID]gtfs.FareID),
 		AreaIDMapping:     make(map[gtfs.AreaID]gtfs.AreaID),
+		JustAddedStops:    make(map[gtfs.StopID]struct{}),
+		JustAddedRoutes:   make(map[gtfs.RouteID]struct{}),
 	}
 }
 
