@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 )
@@ -21,7 +22,19 @@ func NewShapeMergeStrategy() *ShapeMergeStrategy {
 
 // Merge performs the merge operation for shapes
 func (s *ShapeMergeStrategy) Merge(ctx *MergeContext) error {
-	for shapeID, points := range ctx.Source.Shapes {
+	// Sort shape IDs to ensure deterministic processing order.
+	// This is critical because we use a global sequence counter that must
+	// assign numbers in the same order as Java to produce matching output.
+	shapeIDs := make([]gtfs.ShapeID, 0, len(ctx.Source.Shapes))
+	for shapeID := range ctx.Source.Shapes {
+		shapeIDs = append(shapeIDs, shapeID)
+	}
+	sort.Slice(shapeIDs, func(i, j int) bool {
+		return string(shapeIDs[i]) < string(shapeIDs[j])
+	})
+
+	for _, shapeID := range shapeIDs {
+		points := ctx.Source.Shapes[shapeID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if _, found := ctx.Target.Shapes[shapeID]; found {

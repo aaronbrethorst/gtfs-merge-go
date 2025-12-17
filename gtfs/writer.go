@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 )
 
@@ -578,7 +579,17 @@ func writeShapes(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, points := range feed.Shapes {
+	// Sort shape IDs for deterministic output order
+	shapeIDs := make([]ShapeID, 0, len(feed.Shapes))
+	for id := range feed.Shapes {
+		shapeIDs = append(shapeIDs, id)
+	}
+	sort.Slice(shapeIDs, func(i, j int) bool {
+		return string(shapeIDs[i]) < string(shapeIDs[j])
+	})
+
+	for _, shapeID := range shapeIDs {
+		points := feed.Shapes[shapeID]
 		for _, sp := range points {
 			record := make([]string, len(activeCols))
 			for i, col := range activeCols {
