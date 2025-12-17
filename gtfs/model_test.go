@@ -86,7 +86,7 @@ func TestRouteFields(t *testing.T) {
 		{"URL", "string"},
 		{"Color", "string"},
 		{"TextColor", "string"},
-		{"SortOrder", "int"},
+		{"SortOrder", "*int"},
 		{"ContinuousPickup", "int"},
 		{"ContinuousDropOff", "int"},
 	}
@@ -123,8 +123,8 @@ func TestStopTimeFields(t *testing.T) {
 		{"DropOffType", "int"},
 		{"ContinuousPickup", "int"},
 		{"ContinuousDropOff", "int"},
-		{"ShapeDistTraveled", "float64"},
-		{"Timepoint", "int"},
+		{"ShapeDistTraveled", "*float64"},
+		{"Timepoint", "*int"},
 	}
 
 	checkFields(t, reflect.TypeOf(StopTime{}), expected)
@@ -163,7 +163,7 @@ func TestShapePointFields(t *testing.T) {
 		{"Lat", "float64"},
 		{"Lon", "float64"},
 		{"Sequence", "int"},
-		{"DistTraveled", "float64"},
+		{"DistTraveled", "*float64"},
 	}
 
 	checkFields(t, reflect.TypeOf(ShapePoint{}), expected)

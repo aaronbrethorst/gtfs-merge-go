@@ -258,7 +258,7 @@ func TestFeedAddShapePoint(t *testing.T) {
 		Lat:          47.6062,
 		Lon:          -122.3321,
 		Sequence:     1,
-		DistTraveled: 0.0,
+		DistTraveled: nil,
 	}
 
 	feed.Shapes["shape1"] = append(feed.Shapes["shape1"], shapePoint)

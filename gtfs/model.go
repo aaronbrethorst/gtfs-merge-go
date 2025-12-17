@@ -66,7 +66,7 @@ type Route struct {
 	URL               string
 	Color             string
 	TextColor         string
-	SortOrder         int
+	SortOrder         *int // Pointer to distinguish "not set" (nil) from "set to 0"
 	ContinuousPickup  int
 	ContinuousDropOff int
 }
@@ -97,8 +97,8 @@ type StopTime struct {
 	DropOffType       int
 	ContinuousPickup  int
 	ContinuousDropOff int
-	ShapeDistTraveled float64
-	Timepoint         int
+	ShapeDistTraveled *float64 // Pointer to distinguish "not set" (nil) from "set to 0"
+	Timepoint         *int     // Pointer to distinguish "not set" (nil) from "set to 0"
 }
 
 // Calendar represents a service calendar (calendar.txt)
@@ -128,7 +128,7 @@ type ShapePoint struct {
 	Lat          float64
 	Lon          float64
 	Sequence     int
-	DistTraveled float64
+	DistTraveled *float64 // Pointer to distinguish "not set" (nil) from "set to 0"
 }
 
 // Frequency represents frequency-based service (frequencies.txt)

@@ -49,21 +49,15 @@ func (s *FareAttributeMergeStrategy) Merge(ctx *MergeContext) error {
 		}
 		ctx.FareIDMapping[fare.FareID] = newID
 
-		// Map agency reference
-		agencyID := fare.AgencyID
-		if agencyID != "" {
-			if mappedAgency, ok := ctx.AgencyIDMapping[agencyID]; ok {
-				agencyID = mappedAgency
-			}
-		}
-
+		// Note: agency_id is NOT remapped - Java doesn't remap this field,
+		// it only renames entity IDs (AgencyAndId primary keys)
 		newFare := &gtfs.FareAttribute{
 			FareID:           newID,
 			Price:            fare.Price,
 			CurrencyType:     fare.CurrencyType,
 			PaymentMethod:    fare.PaymentMethod,
 			Transfers:        fare.Transfers,
-			AgencyID:         agencyID,
+			AgencyID:         fare.AgencyID, // Keep original, don't remap
 			TransferDuration: fare.TransferDuration,
 			YouthPrice:       fare.YouthPrice,
 			SeniorPrice:      fare.SeniorPrice,

@@ -46,7 +46,7 @@ func ParseRoute(row *CSVRow) *Route {
 		URL:               row.Get("route_url"),
 		Color:             row.Get("route_color"),
 		TextColor:         row.Get("route_text_color"),
-		SortOrder:         row.GetInt("route_sort_order"),
+		SortOrder:         row.GetIntPtr("route_sort_order"),
 		ContinuousPickup:  row.GetInt("continuous_pickup"),
 		ContinuousDropOff: row.GetInt("continuous_drop_off"),
 	}
@@ -81,8 +81,8 @@ func ParseStopTime(row *CSVRow) *StopTime {
 		DropOffType:       row.GetInt("drop_off_type"),
 		ContinuousPickup:  row.GetInt("continuous_pickup"),
 		ContinuousDropOff: row.GetInt("continuous_drop_off"),
-		ShapeDistTraveled: row.GetFloat("shape_dist_traveled"),
-		Timepoint:         row.GetInt("timepoint"),
+		ShapeDistTraveled: row.GetFloatPtr("shape_dist_traveled"),
+		Timepoint:         row.GetIntPtr("timepoint"),
 	}
 }
 
@@ -118,7 +118,7 @@ func ParseShapePoint(row *CSVRow) *ShapePoint {
 		Lat:          row.GetFloat("shape_pt_lat"),
 		Lon:          row.GetFloat("shape_pt_lon"),
 		Sequence:     row.GetInt("shape_pt_sequence"),
-		DistTraveled: row.GetFloat("shape_dist_traveled"),
+		DistTraveled: row.GetFloatPtr("shape_dist_traveled"),
 	}
 }
 
