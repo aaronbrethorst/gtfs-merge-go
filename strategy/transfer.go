@@ -18,6 +18,33 @@ func NewTransferMergeStrategy() *TransferMergeStrategy {
 
 // Merge performs the merge operation for transfers
 func (s *TransferMergeStrategy) Merge(ctx *MergeContext) error {
+	// Build index for O(1) duplicate detection (avoids O(n²) linear scan)
+	type transferKey struct {
+		fromStopID      gtfs.StopID
+		toStopID        gtfs.StopID
+		transferType    int
+		minTransferTime int
+		fromRouteID     gtfs.RouteID
+		toRouteID       gtfs.RouteID
+		fromTripID      gtfs.TripID
+		toTripID        gtfs.TripID
+	}
+	existingKeys := make(map[transferKey]bool)
+	if s.DuplicateDetection == DetectionIdentity {
+		for _, existing := range ctx.Target.Transfers {
+			existingKeys[transferKey{
+				existing.FromStopID,
+				existing.ToStopID,
+				existing.TransferType,
+				existing.MinTransferTime,
+				existing.FromRouteID,
+				existing.ToRouteID,
+				existing.FromTripID,
+				existing.ToTripID,
+			}] = true
+		}
+	}
+
 	for _, transfer := range ctx.Source.Transfers {
 		// Map stop references
 		fromStopID := transfer.FromStopID
@@ -60,26 +87,23 @@ func (s *TransferMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// Check for duplicates (all fields must match)
-		isDuplicate := false
+		// Check for duplicates using O(1) lookup
 		if s.DuplicateDetection == DetectionIdentity {
-			for _, existing := range ctx.Target.Transfers {
-				if existing.FromStopID == fromStopID &&
-					existing.ToStopID == toStopID &&
-					existing.TransferType == transfer.TransferType &&
-					existing.MinTransferTime == transfer.MinTransferTime &&
-					existing.FromRouteID == fromRouteID &&
-					existing.ToRouteID == toRouteID &&
-					existing.FromTripID == fromTripID &&
-					existing.ToTripID == toTripID {
-					isDuplicate = true
-					break
-				}
+			key := transferKey{
+				fromStopID,
+				toStopID,
+				transfer.TransferType,
+				transfer.MinTransferTime,
+				fromRouteID,
+				toRouteID,
+				fromTripID,
+				toTripID,
 			}
-		}
-
-		if isDuplicate {
-			continue
+			if existingKeys[key] {
+				continue
+			}
+			// Add to index for subsequent source items
+			existingKeys[key] = true
 		}
 
 		newTransfer := &gtfs.Transfer{

@@ -82,6 +82,27 @@ func NewFareRuleMergeStrategy() *FareRuleMergeStrategy {
 
 // Merge performs the merge operation for fare rules
 func (s *FareRuleMergeStrategy) Merge(ctx *MergeContext) error {
+	// Build index for O(1) duplicate detection (avoids O(n²) linear scan)
+	type fareRuleKey struct {
+		fareID        gtfs.FareID
+		routeID       gtfs.RouteID
+		originID      string
+		destinationID string
+		containsID    string
+	}
+	existingKeys := make(map[fareRuleKey]bool)
+	if s.DuplicateDetection == DetectionIdentity {
+		for _, existing := range ctx.Target.FareRules {
+			existingKeys[fareRuleKey{
+				existing.FareID,
+				existing.RouteID,
+				existing.OriginID,
+				existing.DestinationID,
+				existing.ContainsID,
+			}] = true
+		}
+	}
+
 	for _, rule := range ctx.Source.FareRules {
 		// Map references
 		fareID := rule.FareID
@@ -96,23 +117,20 @@ func (s *FareRuleMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// Check for duplicates (same fare_id, route_id, origin_id, destination_id, contains_id)
-		isDuplicate := false
+		// Check for duplicates using O(1) lookup
 		if s.DuplicateDetection == DetectionIdentity {
-			for _, existing := range ctx.Target.FareRules {
-				if existing.FareID == fareID &&
-					existing.RouteID == routeID &&
-					existing.OriginID == rule.OriginID &&
-					existing.DestinationID == rule.DestinationID &&
-					existing.ContainsID == rule.ContainsID {
-					isDuplicate = true
-					break
-				}
+			key := fareRuleKey{
+				fareID,
+				routeID,
+				rule.OriginID,
+				rule.DestinationID,
+				rule.ContainsID,
 			}
-		}
-
-		if isDuplicate {
-			continue
+			if existingKeys[key] {
+				continue
+			}
+			// Add to index for subsequent source items
+			existingKeys[key] = true
 		}
 
 		newRule := &gtfs.FareRule{

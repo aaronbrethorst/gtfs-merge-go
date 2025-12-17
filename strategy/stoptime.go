@@ -18,6 +18,18 @@ func NewStopTimeMergeStrategy() *StopTimeMergeStrategy {
 
 // Merge performs the merge operation for stop times
 func (s *StopTimeMergeStrategy) Merge(ctx *MergeContext) error {
+	// Build index for O(1) duplicate detection (avoids O(n²) linear scan)
+	type stopTimeKey struct {
+		tripID       gtfs.TripID
+		stopSequence int
+	}
+	existingKeys := make(map[stopTimeKey]bool)
+	if s.DuplicateDetection == DetectionIdentity {
+		for _, existing := range ctx.Target.StopTimes {
+			existingKeys[stopTimeKey{existing.TripID, existing.StopSequence}] = true
+		}
+	}
+
 	for _, st := range ctx.Source.StopTimes {
 		// Map references
 		tripID := st.TripID
@@ -30,19 +42,14 @@ func (s *StopTimeMergeStrategy) Merge(ctx *MergeContext) error {
 			stopID = mappedStop
 		}
 
-		// Check for duplicates (same trip_id, stop_sequence)
-		isDuplicate := false
+		// Check for duplicates (same trip_id, stop_sequence) using O(1) lookup
 		if s.DuplicateDetection == DetectionIdentity {
-			for _, existing := range ctx.Target.StopTimes {
-				if existing.TripID == tripID && existing.StopSequence == st.StopSequence {
-					isDuplicate = true
-					break
-				}
+			key := stopTimeKey{tripID, st.StopSequence}
+			if existingKeys[key] {
+				continue
 			}
-		}
-
-		if isDuplicate {
-			continue
+			// Add to index for subsequent source items
+			existingKeys[key] = true
 		}
 
 		newST := &gtfs.StopTime{

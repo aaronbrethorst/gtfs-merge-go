@@ -18,6 +18,20 @@ func NewFrequencyMergeStrategy() *FrequencyMergeStrategy {
 
 // Merge performs the merge operation for frequencies
 func (s *FrequencyMergeStrategy) Merge(ctx *MergeContext) error {
+	// Build index for O(1) duplicate detection (avoids O(n²) linear scan)
+	type frequencyKey struct {
+		tripID      gtfs.TripID
+		startTime   string
+		endTime     string
+		headwaySecs int
+	}
+	existingKeys := make(map[frequencyKey]bool)
+	if s.DuplicateDetection == DetectionIdentity {
+		for _, existing := range ctx.Target.Frequencies {
+			existingKeys[frequencyKey{existing.TripID, existing.StartTime, existing.EndTime, existing.HeadwaySecs}] = true
+		}
+	}
+
 	for _, freq := range ctx.Source.Frequencies {
 		// Map trip reference
 		tripID := freq.TripID
@@ -25,22 +39,14 @@ func (s *FrequencyMergeStrategy) Merge(ctx *MergeContext) error {
 			tripID = mappedTrip
 		}
 
-		// Check for duplicates (same trip_id, start_time, end_time, headway_secs)
-		isDuplicate := false
+		// Check for duplicates using O(1) lookup
 		if s.DuplicateDetection == DetectionIdentity {
-			for _, existing := range ctx.Target.Frequencies {
-				if existing.TripID == tripID &&
-					existing.StartTime == freq.StartTime &&
-					existing.EndTime == freq.EndTime &&
-					existing.HeadwaySecs == freq.HeadwaySecs {
-					isDuplicate = true
-					break
-				}
+			key := frequencyKey{tripID, freq.StartTime, freq.EndTime, freq.HeadwaySecs}
+			if existingKeys[key] {
+				continue
 			}
-		}
-
-		if isDuplicate {
-			continue
+			// Add to index for subsequent source items
+			existingKeys[key] = true
 		}
 
 		newFreq := &gtfs.Frequency{
