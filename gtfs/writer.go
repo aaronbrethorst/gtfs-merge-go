@@ -140,6 +140,42 @@ func formatBool(v bool) string {
 	return "0"
 }
 
+// columnChecker tracks which optional columns have non-default values.
+// Used to match Java behavior: only output columns that have actual data.
+type columnChecker struct {
+	columns map[string]bool // column name -> has non-default value
+}
+
+func newColumnChecker(optionalCols []string) *columnChecker {
+	checker := &columnChecker{
+		columns: make(map[string]bool),
+	}
+	for _, col := range optionalCols {
+		checker.columns[col] = false
+	}
+	return checker
+}
+
+func (c *columnChecker) markNonDefault(col string) {
+	c.columns[col] = true
+}
+
+func (c *columnChecker) hasNonDefaultValue(col string) bool {
+	if hasValue, exists := c.columns[col]; exists {
+		return hasValue
+	}
+	return true // If not tracked as optional, include by default
+}
+
+func (c *columnChecker) allFound() bool {
+	for _, found := range c.columns {
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // writeAgencies writes agency.txt
 func writeAgencies(zw *zip.Writer, feed *Feed) error {
 	w, err := zw.Create("agency.txt")
@@ -226,10 +262,61 @@ func writeStops(zw *zip.Writer, feed *Feed) error {
 		{"platform_code", func(s *Stop) string { return s.PlatformCode }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"stop_id": true, "stop_name": true, "stop_lat": true, "stop_lon": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{
+		"stop_code", "stop_desc", "zone_id", "stop_url", "location_type",
+		"parent_station", "stop_timezone", "wheelchair_boarding", "level_id", "platform_code",
+	}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, s := range feed.Stops {
+		if s.Code != "" {
+			checker.markNonDefault("stop_code")
+		}
+		if s.Desc != "" {
+			checker.markNonDefault("stop_desc")
+		}
+		if s.ZoneID != "" {
+			checker.markNonDefault("zone_id")
+		}
+		if s.URL != "" {
+			checker.markNonDefault("stop_url")
+		}
+		if s.LocationType != 0 {
+			checker.markNonDefault("location_type")
+		}
+		if s.ParentStation != "" {
+			checker.markNonDefault("parent_station")
+		}
+		if s.Timezone != "" {
+			checker.markNonDefault("stop_timezone")
+		}
+		if s.WheelchairBoarding != 0 {
+			checker.markNonDefault("wheelchair_boarding")
+		}
+		if s.LevelID != "" {
+			checker.markNonDefault("level_id")
+		}
+		if s.PlatformCode != "" {
+			checker.markNonDefault("platform_code")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("stops.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("stops.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -285,10 +372,62 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		{"continuous_drop_off", func(r *Route) string { return formatOptionalInt(r.ContinuousDropOff) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"route_id": true, "route_type": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{
+		"agency_id", "route_short_name", "route_long_name", "route_desc",
+		"route_url", "route_color", "route_text_color", "route_sort_order",
+		"continuous_pickup", "continuous_drop_off",
+	}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, r := range feed.Routes {
+		if r.AgencyID != "" {
+			checker.markNonDefault("agency_id")
+		}
+		if r.ShortName != "" {
+			checker.markNonDefault("route_short_name")
+		}
+		if r.LongName != "" {
+			checker.markNonDefault("route_long_name")
+		}
+		if r.Desc != "" {
+			checker.markNonDefault("route_desc")
+		}
+		if r.URL != "" {
+			checker.markNonDefault("route_url")
+		}
+		if r.Color != "" {
+			checker.markNonDefault("route_color")
+		}
+		if r.TextColor != "" {
+			checker.markNonDefault("route_text_color")
+		}
+		if r.SortOrder != 0 {
+			checker.markNonDefault("route_sort_order")
+		}
+		if r.ContinuousPickup != 0 {
+			checker.markNonDefault("continuous_pickup")
+		}
+		if r.ContinuousDropOff != 0 {
+			checker.markNonDefault("continuous_drop_off")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("routes.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("routes.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -342,10 +481,52 @@ func writeTrips(zw *zip.Writer, feed *Feed) error {
 		{"bikes_allowed", func(t *Trip) string { return formatOptionalInt(t.BikesAllowed) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"trip_id": true, "route_id": true, "service_id": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{
+		"trip_headsign", "trip_short_name", "direction_id", "block_id",
+		"shape_id", "wheelchair_accessible", "bikes_allowed",
+	}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, t := range feed.Trips {
+		if t.Headsign != "" {
+			checker.markNonDefault("trip_headsign")
+		}
+		if t.ShortName != "" {
+			checker.markNonDefault("trip_short_name")
+		}
+		if t.DirectionID != nil {
+			checker.markNonDefault("direction_id")
+		}
+		if t.BlockID != "" {
+			checker.markNonDefault("block_id")
+		}
+		if t.ShapeID != "" {
+			checker.markNonDefault("shape_id")
+		}
+		if t.WheelchairAccessible != 0 {
+			checker.markNonDefault("wheelchair_accessible")
+		}
+		if t.BikesAllowed != 0 {
+			checker.markNonDefault("bikes_allowed")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("trips.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("trips.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -401,10 +582,54 @@ func writeStopTimes(zw *zip.Writer, feed *Feed) error {
 		{"timepoint", func(st *StopTime) string { return formatOptionalInt(st.Timepoint) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"trip_id": true, "arrival_time": true, "departure_time": true,
+		"stop_id": true, "stop_sequence": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{
+		"stop_headsign", "pickup_type", "drop_off_type",
+		"continuous_pickup", "continuous_drop_off", "shape_dist_traveled", "timepoint",
+	}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, st := range feed.StopTimes {
+		if st.StopHeadsign != "" {
+			checker.markNonDefault("stop_headsign")
+		}
+		if st.PickupType != 0 {
+			checker.markNonDefault("pickup_type")
+		}
+		if st.DropOffType != 0 {
+			checker.markNonDefault("drop_off_type")
+		}
+		if st.ContinuousPickup != 0 {
+			checker.markNonDefault("continuous_pickup")
+		}
+		if st.ContinuousDropOff != 0 {
+			checker.markNonDefault("continuous_drop_off")
+		}
+		if st.ShapeDistTraveled != 0.0 {
+			checker.markNonDefault("shape_dist_traveled")
+		}
+		if st.Timepoint != 0 {
+			checker.markNonDefault("timepoint")
+		}
+		// Early termination: stop if all optional columns have data
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("stop_times.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("stop_times.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -562,10 +787,36 @@ func writeShapes(zw *zip.Writer, feed *Feed) error {
 		{"shape_dist_traveled", func(sp *ShapePoint) string { return formatFloat(sp.DistTraveled) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"shape_id": true, "shape_pt_lat": true, "shape_pt_lon": true, "shape_pt_sequence": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{"shape_dist_traveled"}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, points := range feed.Shapes {
+		for _, sp := range points {
+			if sp.DistTraveled != 0.0 {
+				checker.markNonDefault("shape_dist_traveled")
+			}
+			if checker.allFound() {
+				break
+			}
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("shapes.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("shapes.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -626,10 +877,31 @@ func writeFrequencies(zw *zip.Writer, feed *Feed) error {
 		{"exact_times", func(f *Frequency) string { return formatOptionalInt(f.ExactTimes) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"trip_id": true, "start_time": true, "end_time": true, "headway_secs": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{"exact_times"}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, f := range feed.Frequencies {
+		if f.ExactTimes != 0 {
+			checker.markNonDefault("exact_times")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("frequencies.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("frequencies.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -677,10 +949,34 @@ func writeTransfers(zw *zip.Writer, feed *Feed) error {
 		{"min_transfer_time", func(t *Transfer) string { return formatOptionalInt(t.MinTransferTime) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"from_stop_id": true, "to_stop_id": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{"transfer_type", "min_transfer_time"}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, t := range feed.Transfers {
+		if t.TransferType != 0 {
+			checker.markNonDefault("transfer_type")
+		}
+		if t.MinTransferTime != 0 {
+			checker.markNonDefault("min_transfer_time")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("transfers.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("transfers.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -731,10 +1027,40 @@ func writeFareAttributes(zw *zip.Writer, feed *Feed) error {
 		{"transfer_duration", func(fa *FareAttribute) string { return formatOptionalInt(fa.TransferDuration) }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"fare_id": true, "price": true, "currency_type": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{"payment_method", "transfers", "agency_id", "transfer_duration"}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, fa := range feed.FareAttributes {
+		if fa.PaymentMethod != 0 {
+			checker.markNonDefault("payment_method")
+		}
+		if fa.Transfers != 0 {
+			checker.markNonDefault("transfers")
+		}
+		if fa.AgencyID != "" {
+			checker.markNonDefault("agency_id")
+		}
+		if fa.TransferDuration != 0 {
+			checker.markNonDefault("transfer_duration")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("fare_attributes.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("fare_attributes.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}
@@ -947,10 +1273,53 @@ func writePathways(zw *zip.Writer, feed *Feed) error {
 		{"reversed_signposted_as", func(p *Pathway) string { return p.ReversedSignpostedAs }},
 	}
 
-	// Filter to only columns present in source data
+	// Required columns are always included
+	requiredCols := map[string]bool{
+		"pathway_id": true, "from_stop_id": true, "to_stop_id": true,
+		"pathway_mode": true, "is_bidirectional": true,
+	}
+
+	// Optional columns: only include if at least one row has non-default value
+	optionalCols := []string{
+		"length", "traversal_time", "stair_count", "max_slope", "min_width",
+		"signposted_as", "reversed_signposted_as",
+	}
+	checker := newColumnChecker(optionalCols)
+
+	// Pre-scan to find which optional columns have non-default values
+	for _, p := range feed.Pathways {
+		if p.Length != 0.0 {
+			checker.markNonDefault("length")
+		}
+		if p.TraversalTime != 0 {
+			checker.markNonDefault("traversal_time")
+		}
+		if p.StairCount != 0 {
+			checker.markNonDefault("stair_count")
+		}
+		if p.MaxSlope != 0.0 {
+			checker.markNonDefault("max_slope")
+		}
+		if p.MinWidth != 0.0 {
+			checker.markNonDefault("min_width")
+		}
+		if p.SignpostedAs != "" {
+			checker.markNonDefault("signposted_as")
+		}
+		if p.ReversedSignpostedAs != "" {
+			checker.markNonDefault("reversed_signposted_as")
+		}
+		if checker.allFound() {
+			break
+		}
+	}
+
+	// Filter columns: include if required OR (in source AND has non-default value)
 	var activeCols []colDef
 	for _, col := range allCols {
-		if feed.HasColumn("pathways.txt", col.name) {
+		if requiredCols[col.name] {
+			activeCols = append(activeCols, col)
+		} else if feed.HasColumn("pathways.txt", col.name) && checker.hasNonDefaultValue(col.name) {
 			activeCols = append(activeCols, col)
 		}
 	}

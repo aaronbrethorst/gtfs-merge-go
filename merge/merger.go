@@ -101,12 +101,16 @@ func (m *Merger) MergeFeeds(feeds []*gtfs.Feed) (*gtfs.Feed, error) {
 	// Start with an empty target feed
 	target := gtfs.NewFeed()
 
+	// Shared counter for shape sequences - persists across all feeds to match Java behavior
+	sharedShapeCounter := 0
+
 	// Process feeds in reverse order (last feed first, which gets no prefix)
 	for i := len(feeds) - 1; i >= 0; i-- {
 		feedIndex := len(feeds) - 1 - i // 0 for last feed, 1 for second-to-last, etc.
 		prefix := GetPrefixForIndex(feedIndex)
 
 		ctx := strategy.NewMergeContext(feeds[i], target, prefix)
+		ctx.SetSharedShapeCounter(&sharedShapeCounter)
 
 		// Merge column sets from source feed to track which columns were present
 		target.MergeColumnSets(feeds[i])
