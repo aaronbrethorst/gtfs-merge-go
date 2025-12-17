@@ -35,18 +35,34 @@ type MergeContext struct {
 	FareIDMapping    map[gtfs.FareID]gtfs.FareID
 	AreaIDMapping    map[gtfs.AreaID]gtfs.AreaID
 
-	// ShapeSequenceCounter is a global counter for shape point sequences.
-	// Java replaces original sequences with a global counter that increments
-	// across all shape points in a feed.
+	// ShapeSequenceCounter is a counter for shape point sequences within this context.
+	// Deprecated: Use sharedShapeCounter for multi-feed merges to match Java behavior.
 	ShapeSequenceCounter int
+
+	// sharedShapeCounter points to a counter that persists across all feeds
+	// in a single merge operation. Used for shape point sequence numbering
+	// to match Java's behavior of globally incrementing sequences.
+	sharedShapeCounter *int
 }
 
 // NextShapeSequence returns the next shape point sequence number.
 // This mimics Java's behavior where all shape points get globally incrementing
 // sequence numbers rather than preserving original sequences.
 func (ctx *MergeContext) NextShapeSequence() int {
+	if ctx.sharedShapeCounter != nil {
+		*ctx.sharedShapeCounter++
+		return *ctx.sharedShapeCounter
+	}
+	// Fallback for single-context usage
 	ctx.ShapeSequenceCounter++
 	return ctx.ShapeSequenceCounter
+}
+
+// SetSharedShapeCounter sets a shared counter for shape sequences that persists
+// across multiple merge contexts. This is used to match Java's behavior where
+// shape point sequences increment globally across all feeds in a merge.
+func (ctx *MergeContext) SetSharedShapeCounter(counter *int) {
+	ctx.sharedShapeCounter = counter
 }
 
 // NewMergeContext creates a new merge context

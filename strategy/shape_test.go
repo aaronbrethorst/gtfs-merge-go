@@ -276,3 +276,75 @@ func TestShapeMergeDeterministicSequences(t *testing.T) {
 		t.Errorf("Expected zebra first point to get sequence 5, got %d", firstRunSequences["zebra"][0])
 	}
 }
+
+func TestShapeMergeSharedCounterAcrossFeeds(t *testing.T) {
+	// This test verifies that when using a shared counter, shape sequences
+	// continue incrementing across multiple feeds rather than resetting.
+	// This is critical for matching Java's behavior in multi-feed merges.
+
+	// Given: two feeds with shapes
+	feed1 := gtfs.NewFeed()
+	feed1.Shapes[gtfs.ShapeID("shape_a")] = []*gtfs.ShapePoint{
+		{ShapeID: "shape_a", Lat: 1.0, Lon: 1.0, Sequence: 1},
+		{ShapeID: "shape_a", Lat: 1.1, Lon: 1.1, Sequence: 2},
+	}
+
+	feed2 := gtfs.NewFeed()
+	feed2.Shapes[gtfs.ShapeID("shape_b")] = []*gtfs.ShapePoint{
+		{ShapeID: "shape_b", Lat: 2.0, Lon: 2.0, Sequence: 1},
+		{ShapeID: "shape_b", Lat: 2.1, Lon: 2.1, Sequence: 2},
+		{ShapeID: "shape_b", Lat: 2.2, Lon: 2.2, Sequence: 3},
+	}
+
+	target := gtfs.NewFeed()
+
+	// Create shared counter
+	sharedCounter := 0
+
+	// Merge first feed
+	ctx1 := NewMergeContext(feed1, target, "")
+	ctx1.SetSharedShapeCounter(&sharedCounter)
+	strategy1 := NewShapeMergeStrategy()
+	err := strategy1.Merge(ctx1)
+	if err != nil {
+		t.Fatalf("First merge failed: %v", err)
+	}
+
+	// Merge second feed
+	ctx2 := NewMergeContext(feed2, target, "")
+	ctx2.SetSharedShapeCounter(&sharedCounter)
+	strategy2 := NewShapeMergeStrategy()
+	err = strategy2.Merge(ctx2)
+	if err != nil {
+		t.Fatalf("Second merge failed: %v", err)
+	}
+
+	// Verify both shapes are in target
+	if len(target.Shapes) != 2 {
+		t.Errorf("Expected 2 shapes, got %d", len(target.Shapes))
+	}
+
+	// Verify shape_a has sequences 1, 2
+	shapeA := target.Shapes["shape_a"]
+	if len(shapeA) != 2 {
+		t.Fatalf("Expected 2 points for shape_a, got %d", len(shapeA))
+	}
+	if shapeA[0].Sequence != 1 || shapeA[1].Sequence != 2 {
+		t.Errorf("Expected shape_a sequences [1, 2], got [%d, %d]", shapeA[0].Sequence, shapeA[1].Sequence)
+	}
+
+	// Verify shape_b has sequences 3, 4, 5 (continuing from where shape_a left off)
+	shapeB := target.Shapes["shape_b"]
+	if len(shapeB) != 3 {
+		t.Fatalf("Expected 3 points for shape_b, got %d", len(shapeB))
+	}
+	if shapeB[0].Sequence != 3 || shapeB[1].Sequence != 4 || shapeB[2].Sequence != 5 {
+		t.Errorf("Expected shape_b sequences [3, 4, 5], got [%d, %d, %d]",
+			shapeB[0].Sequence, shapeB[1].Sequence, shapeB[2].Sequence)
+	}
+
+	// Verify the shared counter has the final value
+	if sharedCounter != 5 {
+		t.Errorf("Expected shared counter to be 5, got %d", sharedCounter)
+	}
+}

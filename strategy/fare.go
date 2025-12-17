@@ -65,6 +65,8 @@ func (s *FareAttributeMergeStrategy) Merge(ctx *MergeContext) error {
 			Transfers:        fare.Transfers,
 			AgencyID:         agencyID,
 			TransferDuration: fare.TransferDuration,
+			YouthPrice:       fare.YouthPrice,
+			SeniorPrice:      fare.SeniorPrice,
 		}
 		ctx.Target.FareAttributes[newID] = newFare
 	}

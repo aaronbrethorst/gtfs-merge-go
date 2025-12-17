@@ -30,14 +30,48 @@ func (s *TransferMergeStrategy) Merge(ctx *MergeContext) error {
 			toStopID = mappedStop
 		}
 
-		// Check for duplicates (same from_stop_id, to_stop_id, transfer_type, min_transfer_time)
+		// Map route references
+		fromRouteID := transfer.FromRouteID
+		if fromRouteID != "" {
+			if mappedRoute, ok := ctx.RouteIDMapping[fromRouteID]; ok {
+				fromRouteID = mappedRoute
+			}
+		}
+
+		toRouteID := transfer.ToRouteID
+		if toRouteID != "" {
+			if mappedRoute, ok := ctx.RouteIDMapping[toRouteID]; ok {
+				toRouteID = mappedRoute
+			}
+		}
+
+		// Map trip references
+		fromTripID := transfer.FromTripID
+		if fromTripID != "" {
+			if mappedTrip, ok := ctx.TripIDMapping[fromTripID]; ok {
+				fromTripID = mappedTrip
+			}
+		}
+
+		toTripID := transfer.ToTripID
+		if toTripID != "" {
+			if mappedTrip, ok := ctx.TripIDMapping[toTripID]; ok {
+				toTripID = mappedTrip
+			}
+		}
+
+		// Check for duplicates (all fields must match)
 		isDuplicate := false
 		if s.DuplicateDetection == DetectionIdentity {
 			for _, existing := range ctx.Target.Transfers {
 				if existing.FromStopID == fromStopID &&
 					existing.ToStopID == toStopID &&
 					existing.TransferType == transfer.TransferType &&
-					existing.MinTransferTime == transfer.MinTransferTime {
+					existing.MinTransferTime == transfer.MinTransferTime &&
+					existing.FromRouteID == fromRouteID &&
+					existing.ToRouteID == toRouteID &&
+					existing.FromTripID == fromTripID &&
+					existing.ToTripID == toTripID {
 					isDuplicate = true
 					break
 				}
@@ -53,6 +87,10 @@ func (s *TransferMergeStrategy) Merge(ctx *MergeContext) error {
 			ToStopID:        toStopID,
 			TransferType:    transfer.TransferType,
 			MinTransferTime: transfer.MinTransferTime,
+			FromRouteID:     fromRouteID,
+			ToRouteID:       toRouteID,
+			FromTripID:      fromTripID,
+			ToTripID:        toTripID,
 		}
 		ctx.Target.Transfers = append(ctx.Target.Transfers, newTransfer)
 	}

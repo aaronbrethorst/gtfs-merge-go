@@ -146,6 +146,10 @@ type Transfer struct {
 	ToStopID        StopID
 	TransferType    int
 	MinTransferTime int
+	FromRouteID     RouteID
+	ToRouteID       RouteID
+	FromTripID      TripID
+	ToTripID        TripID
 }
 
 // FareAttribute represents fare pricing (fare_attributes.txt)
@@ -157,6 +161,8 @@ type FareAttribute struct {
 	Transfers        int
 	AgencyID         AgencyID
 	TransferDuration int
+	YouthPrice       float64
+	SeniorPrice      float64
 }
 
 // FareRule represents fare rules (fare_rules.txt)
