@@ -363,7 +363,8 @@ func TestWriteAllOptionalFiles(t *testing.T) {
 		FareID:  FareID("fare1"),
 		RouteID: RouteID("route1"),
 	})
-	feed.FeedInfo = &FeedInfo{
+	feed.FeedInfos["1"] = &FeedInfo{
+		FeedID:        "1",
 		PublisherName: "Test Publisher",
 		PublisherURL:  "http://example.com",
 		Lang:          "en",

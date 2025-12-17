@@ -84,7 +84,7 @@ func WriteToZip(feed *Feed, w io.Writer) error {
 			return fmt.Errorf("writing fare_rules.txt: %w", err)
 		}
 	}
-	if feed.FeedInfo != nil {
+	if len(feed.FeedInfos) > 0 {
 		if err := writeFeedInfo(zw, feed); err != nil {
 			return fmt.Errorf("writing feed_info.txt: %w", err)
 		}
@@ -1167,13 +1167,31 @@ func writeFeedInfo(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	fi := feed.FeedInfo
-	record := make([]string, len(activeCols))
-	for i, col := range activeCols {
-		record[i] = col.getter(fi)
+	// Collect and sort feed_ids for consistent output
+	ids := make([]string, 0, len(feed.FeedInfos))
+	for id := range feed.FeedInfos {
+		ids = append(ids, id)
 	}
-	if err := csvw.WriteRecord(record); err != nil {
-		return err
+	sort.Slice(ids, func(i, j int) bool {
+		// Sort numerically if possible, else lexicographically
+		ni, ei := strconv.Atoi(ids[i])
+		nj, ej := strconv.Atoi(ids[j])
+		if ei == nil && ej == nil {
+			return ni < nj
+		}
+		return ids[i] < ids[j]
+	})
+
+	// Write all FeedInfo entries
+	for _, id := range ids {
+		fi := feed.FeedInfos[id]
+		record := make([]string, len(activeCols))
+		for i, col := range activeCols {
+			record[i] = col.getter(fi)
+		}
+		if err := csvw.WriteRecord(record); err != nil {
+			return err
+		}
 	}
 
 	return csvw.Flush()

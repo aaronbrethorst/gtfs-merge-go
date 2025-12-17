@@ -182,8 +182,8 @@ func TestReadFromDirectoryOptionalFiles(t *testing.T) {
 	if len(feed.FareRules) != 0 {
 		t.Errorf("expected 0 fare_rules, got %d", len(feed.FareRules))
 	}
-	if feed.FeedInfo != nil {
-		t.Error("expected nil feed_info")
+	if len(feed.FeedInfos) != 0 {
+		t.Errorf("expected 0 feed_infos, got %d", len(feed.FeedInfos))
 	}
 	if len(feed.Areas) != 0 {
 		t.Errorf("expected 0 areas, got %d", len(feed.Areas))
