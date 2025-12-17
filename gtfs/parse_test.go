@@ -263,8 +263,8 @@ route1,service1,trip1,Downtown,Express,0,block1,shape1,1,2`
 	if trip.ShortName != "Express" {
 		t.Errorf("expected ShortName 'Express', got '%s'", trip.ShortName)
 	}
-	if trip.DirectionID != 0 {
-		t.Errorf("expected DirectionID 0, got %d", trip.DirectionID)
+	if trip.DirectionID == nil || *trip.DirectionID != 0 {
+		t.Errorf("expected DirectionID pointer to 0, got %v", trip.DirectionID)
 	}
 	if trip.BlockID != "block1" {
 		t.Errorf("expected BlockID 'block1', got '%s'", trip.BlockID)

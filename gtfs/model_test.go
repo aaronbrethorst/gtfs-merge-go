@@ -101,7 +101,7 @@ func TestTripFields(t *testing.T) {
 		{"ServiceID", "gtfs.ServiceID"},
 		{"Headsign", "string"},
 		{"ShortName", "string"},
-		{"DirectionID", "int"},
+		{"DirectionID", "*int"},
 		{"BlockID", "string"},
 		{"ShapeID", "gtfs.ShapeID"},
 		{"WheelchairAccessible", "int"},

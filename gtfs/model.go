@@ -78,7 +78,7 @@ type Trip struct {
 	ServiceID            ServiceID
 	Headsign             string
 	ShortName            string
-	DirectionID          int
+	DirectionID          *int // Pointer to distinguish "not set" (nil) from "set to 0"
 	BlockID              string
 	ShapeID              ShapeID
 	WheelchairAccessible int
