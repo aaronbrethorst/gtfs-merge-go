@@ -84,7 +84,7 @@ func WriteToZip(feed *Feed, w io.Writer) error {
 			return fmt.Errorf("writing fare_rules.txt: %w", err)
 		}
 	}
-	if feed.FeedInfo != nil {
+	if len(feed.FeedInfos) > 0 {
 		if err := writeFeedInfo(zw, feed); err != nil {
 			return fmt.Errorf("writing feed_info.txt: %w", err)
 		}
@@ -131,6 +131,15 @@ func formatFloat(v float64) string {
 		return ""
 	}
 	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// formatFloatPtr formats a pointer to float64.
+// Returns empty string for nil, otherwise formats the value with 6 decimal places.
+func formatFloatPtr(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatFloat(*v, 'f', 6, 64)
 }
 
 // formatPriceFloat formats a price with 6 decimal places, including when the value is 0
@@ -372,7 +381,7 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		{"route_url", func(r *Route) string { return r.URL }},
 		{"route_color", func(r *Route) string { return r.Color }},
 		{"route_text_color", func(r *Route) string { return r.TextColor }},
-		{"route_sort_order", func(r *Route) string { return formatInt(r.SortOrder) }},
+		{"route_sort_order", func(r *Route) string { return formatIntPtr(r.SortOrder) }},
 		{"continuous_pickup", func(r *Route) string { return formatOptionalInt(r.ContinuousPickup) }},
 		{"continuous_drop_off", func(r *Route) string { return formatOptionalInt(r.ContinuousDropOff) }},
 	}
@@ -413,7 +422,7 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		if r.TextColor != "" {
 			checker.markNonDefault("route_text_color")
 		}
-		if r.SortOrder != 0 {
+		if r.SortOrder != nil {
 			checker.markNonDefault("route_sort_order")
 		}
 		if r.ContinuousPickup != 0 {
@@ -583,8 +592,8 @@ func writeStopTimes(zw *zip.Writer, feed *Feed) error {
 		{"drop_off_type", func(st *StopTime) string { return formatOptionalInt(st.DropOffType) }},
 		{"continuous_pickup", func(st *StopTime) string { return formatOptionalInt(st.ContinuousPickup) }},
 		{"continuous_drop_off", func(st *StopTime) string { return formatOptionalInt(st.ContinuousDropOff) }},
-		{"shape_dist_traveled", func(st *StopTime) string { return formatFloat(st.ShapeDistTraveled) }},
-		{"timepoint", func(st *StopTime) string { return formatInt(st.Timepoint) }},
+		{"shape_dist_traveled", func(st *StopTime) string { return formatFloatPtr(st.ShapeDistTraveled) }},
+		{"timepoint", func(st *StopTime) string { return formatIntPtr(st.Timepoint) }},
 	}
 
 	// Required columns are always included
@@ -617,10 +626,10 @@ func writeStopTimes(zw *zip.Writer, feed *Feed) error {
 		if st.ContinuousDropOff != 0 {
 			checker.markNonDefault("continuous_drop_off")
 		}
-		if st.ShapeDistTraveled != 0.0 {
+		if st.ShapeDistTraveled != nil {
 			checker.markNonDefault("shape_dist_traveled")
 		}
-		if st.Timepoint != 0 {
+		if st.Timepoint != nil {
 			checker.markNonDefault("timepoint")
 		}
 		// Early termination: stop if all optional columns have data
@@ -789,7 +798,7 @@ func writeShapes(zw *zip.Writer, feed *Feed) error {
 		{"shape_pt_lat", func(sp *ShapePoint) string { return strconv.FormatFloat(sp.Lat, 'f', -1, 64) }},
 		{"shape_pt_lon", func(sp *ShapePoint) string { return strconv.FormatFloat(sp.Lon, 'f', -1, 64) }},
 		{"shape_pt_sequence", func(sp *ShapePoint) string { return formatInt(sp.Sequence) }},
-		{"shape_dist_traveled", func(sp *ShapePoint) string { return formatFloat(sp.DistTraveled) }},
+		{"shape_dist_traveled", func(sp *ShapePoint) string { return formatFloatPtr(sp.DistTraveled) }},
 	}
 
 	// Required columns are always included
@@ -804,7 +813,7 @@ func writeShapes(zw *zip.Writer, feed *Feed) error {
 	// Pre-scan to find which optional columns have non-default values
 	for _, points := range feed.Shapes {
 		for _, sp := range points {
-			if sp.DistTraveled != 0.0 {
+			if sp.DistTraveled != nil {
 				checker.markNonDefault("shape_dist_traveled")
 			}
 			if checker.allFound() {
@@ -1023,8 +1032,10 @@ func writeFareAttributes(zw *zip.Writer, feed *Feed) error {
 	}
 
 	// Required columns are always included
+	// Note: youth_price and senior_price are always included to match Java behavior
 	requiredCols := map[string]bool{
 		"fare_id": true, "price": true, "currency_type": true,
+		"youth_price": true, "senior_price": true,
 	}
 
 	// Filter columns: include if required OR present in source data
@@ -1156,13 +1167,31 @@ func writeFeedInfo(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	fi := feed.FeedInfo
-	record := make([]string, len(activeCols))
-	for i, col := range activeCols {
-		record[i] = col.getter(fi)
+	// Collect and sort feed_ids for consistent output
+	ids := make([]string, 0, len(feed.FeedInfos))
+	for id := range feed.FeedInfos {
+		ids = append(ids, id)
 	}
-	if err := csvw.WriteRecord(record); err != nil {
-		return err
+	sort.Slice(ids, func(i, j int) bool {
+		// Sort numerically if possible, else lexicographically
+		ni, ei := strconv.Atoi(ids[i])
+		nj, ej := strconv.Atoi(ids[j])
+		if ei == nil && ej == nil {
+			return ni < nj
+		}
+		return ids[i] < ids[j]
+	})
+
+	// Write all FeedInfo entries
+	for _, id := range ids {
+		fi := feed.FeedInfos[id]
+		record := make([]string, len(activeCols))
+		for i, col := range activeCols {
+			record[i] = col.getter(fi)
+		}
+		if err := csvw.WriteRecord(record); err != nil {
+			return err
+		}
 	}
 
 	return csvw.Flush()

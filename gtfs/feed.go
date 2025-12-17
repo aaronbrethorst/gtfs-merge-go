@@ -14,7 +14,7 @@ type Feed struct {
 	Transfers      []*Transfer
 	FareAttributes map[FareID]*FareAttribute
 	FareRules      []*FareRule
-	FeedInfo       *FeedInfo
+	FeedInfos      map[string]*FeedInfo // keyed by feed_id
 	Areas          map[AreaID]*Area
 	Pathways       []*Pathway
 
@@ -39,7 +39,7 @@ func NewFeed() *Feed {
 		Transfers:      make([]*Transfer, 0),
 		FareAttributes: make(map[FareID]*FareAttribute),
 		FareRules:      make([]*FareRule, 0),
-		FeedInfo:       nil,
+		FeedInfos:      make(map[string]*FeedInfo),
 		Areas:          make(map[AreaID]*Area),
 		Pathways:       make([]*Pathway, 0),
 		ColumnSets:     make(map[string]map[string]bool),

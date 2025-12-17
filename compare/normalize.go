@@ -215,6 +215,19 @@ func NormalizeCSV(filename string, content []byte) ([]byte, error) {
 		outputRecords[i] = row
 	}
 
+	// Normalize shape sequences for shapes.txt before sorting
+	// This is needed because Java and Go use global sequence counters during merge
+	// but process shapes in different orders, resulting in different sequence values.
+	if filename == "shapes.txt" && len(outputRecords) > 1 {
+		normalizeShapeSequences(outputRecords[1:], outputCols)
+	}
+
+	// Normalize symmetric transfers (where from_stop_id == to_stop_id)
+	// to ensure route/trip IDs are in consistent order
+	if filename == "transfers.txt" && len(outputRecords) > 1 {
+		normalizeSymmetricTransfers(outputRecords[1:], outputCols)
+	}
+
 	// Sort rows by primary key
 	primaryKey := PrimaryKey(filename)
 	if primaryKey != nil && len(outputRecords) > 1 {
@@ -285,4 +298,120 @@ func normalizeFloat(s string) string {
 		return s // Return original if not a valid float
 	}
 	return strconv.FormatFloat(f, 'f', 6, 64)
+}
+
+// normalizeSymmetricTransfers normalizes transfers where from_stop_id == to_stop_id
+// by ensuring route IDs are in a consistent order (lexicographically smaller first).
+// This is needed because symmetric transfers (same origin and destination stop) may have
+// their route/trip IDs in different orders between Java and Go outputs.
+func normalizeSymmetricTransfers(records [][]string, header []string) {
+	// Find column indices
+	fromStopIdx := -1
+	toStopIdx := -1
+	fromRouteIdx := -1
+	toRouteIdx := -1
+	fromTripIdx := -1
+	toTripIdx := -1
+
+	for i, col := range header {
+		switch col {
+		case "from_stop_id":
+			fromStopIdx = i
+		case "to_stop_id":
+			toStopIdx = i
+		case "from_route_id":
+			fromRouteIdx = i
+		case "to_route_id":
+			toRouteIdx = i
+		case "from_trip_id":
+			fromTripIdx = i
+		case "to_trip_id":
+			toTripIdx = i
+		}
+	}
+
+	if fromStopIdx < 0 || toStopIdx < 0 {
+		return
+	}
+
+	for _, row := range records {
+		if len(row) <= fromStopIdx || len(row) <= toStopIdx {
+			continue
+		}
+
+		// Only normalize if from_stop_id == to_stop_id (symmetric transfer)
+		if row[fromStopIdx] != row[toStopIdx] {
+			continue
+		}
+
+		// Normalize route IDs: ensure from_route_id <= to_route_id
+		if fromRouteIdx >= 0 && toRouteIdx >= 0 && fromRouteIdx < len(row) && toRouteIdx < len(row) {
+			if row[fromRouteIdx] > row[toRouteIdx] {
+				row[fromRouteIdx], row[toRouteIdx] = row[toRouteIdx], row[fromRouteIdx]
+			}
+		}
+
+		// Normalize trip IDs: ensure from_trip_id <= to_trip_id
+		if fromTripIdx >= 0 && toTripIdx >= 0 && fromTripIdx < len(row) && toTripIdx < len(row) {
+			if row[fromTripIdx] > row[toTripIdx] {
+				row[fromTripIdx], row[toTripIdx] = row[toTripIdx], row[fromTripIdx]
+			}
+		}
+	}
+}
+
+// normalizeShapeSequences re-assigns shape_pt_sequence values within each shape_id
+// to ensure consistent comparison regardless of original sequence values.
+// Both Java and Go use global sequence counters during merge but process shapes in
+// different orders, resulting in different sequence values. By normalizing to 1, 2, 3, ...
+// within each shape, we can compare the shape geometry regardless of sequence assignment.
+func normalizeShapeSequences(records [][]string, header []string) {
+	// Find column indices
+	shapeIDIdx := -1
+	seqIdx := -1
+	for i, col := range header {
+		switch col {
+		case "shape_id":
+			shapeIDIdx = i
+		case "shape_pt_sequence":
+			seqIdx = i
+		}
+	}
+
+	if shapeIDIdx < 0 || seqIdx < 0 {
+		return
+	}
+
+	// Group row indices by shape_id
+	shapeRows := make(map[string][]int)
+	for i, row := range records {
+		if len(row) > shapeIDIdx {
+			shapeID := row[shapeIDIdx]
+			shapeRows[shapeID] = append(shapeRows[shapeID], i)
+		}
+	}
+
+	// For each shape, sort rows by current sequence and assign new sequences 1, 2, 3, ...
+	for _, rowIndices := range shapeRows {
+		// Sort row indices by current sequence value
+		sort.Slice(rowIndices, func(i, j int) bool {
+			ri, rj := records[rowIndices[i]], records[rowIndices[j]]
+			if seqIdx < len(ri) && seqIdx < len(rj) {
+				vi, ei := strconv.Atoi(ri[seqIdx])
+				vj, ej := strconv.Atoi(rj[seqIdx])
+				if ei == nil && ej == nil {
+					return vi < vj
+				}
+				return ri[seqIdx] < rj[seqIdx]
+			}
+			return false
+		})
+
+		// Assign new sequences 1, 2, 3, ...
+		for newSeq, rowIdx := range rowIndices {
+			if seqIdx < len(records[rowIdx]) {
+				records[rowIdx][seqIdx] = strconv.Itoa(newSeq + 1)
+			}
+		}
+	}
 }

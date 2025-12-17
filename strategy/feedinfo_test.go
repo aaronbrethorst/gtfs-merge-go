@@ -9,7 +9,8 @@ import (
 func TestFeedInfoMerge(t *testing.T) {
 	// Given: source has feed info, target is empty
 	source := gtfs.NewFeed()
-	source.FeedInfo = &gtfs.FeedInfo{
+	source.FeedInfos["1"] = &gtfs.FeedInfo{
+		FeedID:        "1",
 		PublisherName: "Transit Authority",
 		PublisherURL:  "http://transit.example.com",
 		Lang:          "en",
@@ -31,79 +32,131 @@ func TestFeedInfoMerge(t *testing.T) {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	if target.FeedInfo == nil {
+	if len(target.FeedInfos) != 1 {
+		t.Fatalf("Expected 1 feed info, got %d", len(target.FeedInfos))
+	}
+
+	fi := target.FeedInfos["1"]
+	if fi == nil {
 		t.Fatal("Expected feed info to be copied")
 	}
 
-	if target.FeedInfo.PublisherName != "Transit Authority" {
-		t.Errorf("Expected PublisherName = Transit Authority, got %q", target.FeedInfo.PublisherName)
+	if fi.PublisherName != "Transit Authority" {
+		t.Errorf("Expected PublisherName = Transit Authority, got %q", fi.PublisherName)
 	}
 }
 
-func TestFeedInfoMergeCombinesVersions(t *testing.T) {
-	// Given: both feeds have different versions
+func TestFeedInfoMergeMultipleFeedInfos(t *testing.T) {
+	// Given: source has two feed infos with different feed_ids
 	source := gtfs.NewFeed()
-	source.FeedInfo = &gtfs.FeedInfo{
-		PublisherName: "Transit Authority",
+	source.FeedInfos["1"] = &gtfs.FeedInfo{
+		FeedID:        "1",
+		PublisherName: "Transit Authority A",
+	}
+	source.FeedInfos["99"] = &gtfs.FeedInfo{
+		FeedID:        "99",
+		PublisherName: "Transit Authority B",
+	}
+
+	target := gtfs.NewFeed()
+
+	ctx := NewMergeContext(source, target, "")
+	strategy := NewFeedInfoMergeStrategy()
+
+	// When: merged
+	err := strategy.Merge(ctx)
+
+	// Then: target should have both feed infos
+	if err != nil {
+		t.Fatalf("Merge failed: %v", err)
+	}
+
+	if len(target.FeedInfos) != 2 {
+		t.Fatalf("Expected 2 feed infos, got %d", len(target.FeedInfos))
+	}
+
+	if target.FeedInfos["1"].PublisherName != "Transit Authority A" {
+		t.Errorf("Expected PublisherName A, got %q", target.FeedInfos["1"].PublisherName)
+	}
+	if target.FeedInfos["99"].PublisherName != "Transit Authority B" {
+		t.Errorf("Expected PublisherName B, got %q", target.FeedInfos["99"].PublisherName)
+	}
+}
+
+func TestFeedInfoMergeSameFeedIdOverwrites(t *testing.T) {
+	// Given: source and target have same feed_id (source overwrites target)
+	source := gtfs.NewFeed()
+	source.FeedInfos["1"] = &gtfs.FeedInfo{
+		FeedID:        "1",
+		PublisherName: "Source Transit",
 		Version:       "2.0",
 	}
 
 	target := gtfs.NewFeed()
-	target.FeedInfo = &gtfs.FeedInfo{
-		PublisherName: "Transit Authority",
+	target.FeedInfos["1"] = &gtfs.FeedInfo{
+		FeedID:        "1",
+		PublisherName: "Target Transit",
 		Version:       "1.0",
 	}
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewFeedInfoMergeStrategy()
-	strategy.SetDuplicateDetection(DetectionIdentity)
 
 	// When: merged
 	err := strategy.Merge(ctx)
 
-	// Then: versions should be combined
+	// Then: source should overwrite target (last-read wins)
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	if target.FeedInfo.Version != "1.0, 2.0" {
-		t.Errorf("Expected combined versions, got %q", target.FeedInfo.Version)
+	if len(target.FeedInfos) != 1 {
+		t.Fatalf("Expected 1 feed info, got %d", len(target.FeedInfos))
+	}
+
+	fi := target.FeedInfos["1"]
+	if fi.PublisherName != "Source Transit" {
+		t.Errorf("Expected source to overwrite target, got PublisherName=%q", fi.PublisherName)
+	}
+	if fi.Version != "2.0" {
+		t.Errorf("Expected source version, got %q", fi.Version)
 	}
 }
 
-func TestFeedInfoMergeExpandsDateRange(t *testing.T) {
-	// Given: feeds have different date ranges
+func TestFeedInfoMergeDifferentFeedIds(t *testing.T) {
+	// Given: source and target have different feed_ids
 	source := gtfs.NewFeed()
-	source.FeedInfo = &gtfs.FeedInfo{
-		PublisherName: "Transit Authority",
-		StartDate:     "20230601", // Earlier start
-		EndDate:       "20241231", // Same end
+	source.FeedInfos["99"] = &gtfs.FeedInfo{
+		FeedID:        "99",
+		PublisherName: "Source Transit",
 	}
 
 	target := gtfs.NewFeed()
-	target.FeedInfo = &gtfs.FeedInfo{
-		PublisherName: "Transit Authority",
-		StartDate:     "20240101", // Later start
-		EndDate:       "20250630", // Later end
+	target.FeedInfos["1"] = &gtfs.FeedInfo{
+		FeedID:        "1",
+		PublisherName: "Target Transit",
 	}
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewFeedInfoMergeStrategy()
-	strategy.SetDuplicateDetection(DetectionIdentity)
 
 	// When: merged
 	err := strategy.Merge(ctx)
 
-	// Then: date range should be expanded to cover both
+	// Then: both should be present
 	if err != nil {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	if target.FeedInfo.StartDate != "20230601" {
-		t.Errorf("Expected StartDate = 20230601 (earliest), got %q", target.FeedInfo.StartDate)
+	if len(target.FeedInfos) != 2 {
+		t.Fatalf("Expected 2 feed infos, got %d", len(target.FeedInfos))
 	}
-	if target.FeedInfo.EndDate != "20250630" {
-		t.Errorf("Expected EndDate = 20250630 (latest), got %q", target.FeedInfo.EndDate)
+
+	if target.FeedInfos["1"].PublisherName != "Target Transit" {
+		t.Errorf("Expected Target Transit, got %q", target.FeedInfos["1"].PublisherName)
+	}
+	if target.FeedInfos["99"].PublisherName != "Source Transit" {
+		t.Errorf("Expected Source Transit, got %q", target.FeedInfos["99"].PublisherName)
 	}
 }
 
@@ -112,7 +165,8 @@ func TestFeedInfoMergeNoSource(t *testing.T) {
 	source := gtfs.NewFeed()
 
 	target := gtfs.NewFeed()
-	target.FeedInfo = &gtfs.FeedInfo{
+	target.FeedInfos["1"] = &gtfs.FeedInfo{
+		FeedID:        "1",
 		PublisherName: "Target Transit",
 	}
 
@@ -127,7 +181,11 @@ func TestFeedInfoMergeNoSource(t *testing.T) {
 		t.Fatalf("Merge failed: %v", err)
 	}
 
-	if target.FeedInfo.PublisherName != "Target Transit" {
+	if len(target.FeedInfos) != 1 {
+		t.Fatalf("Expected 1 feed info, got %d", len(target.FeedInfos))
+	}
+
+	if target.FeedInfos["1"].PublisherName != "Target Transit" {
 		t.Errorf("Expected target to keep its feed info")
 	}
 }

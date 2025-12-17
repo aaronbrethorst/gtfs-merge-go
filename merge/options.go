@@ -60,3 +60,12 @@ func WithDefaultRenaming(r strategy.RenamingStrategy) Option {
 		m.feedInfoStrategy.SetRenamingStrategy(r)
 	}
 }
+
+// WithFileDetection sets duplicate detection for a specific GTFS file.
+// This matches the Java CLI behavior where --file and --duplicateDetection
+// are paired by index to apply detection mode to specific entity types.
+func WithFileDetection(filename string, d strategy.DuplicateDetection) Option {
+	return func(m *Merger) {
+		m.SetDuplicateDetectionForFile(filename, d)
+	}
+}

@@ -170,6 +170,21 @@ func (r *CSVRow) GetFloat(column string) float64 {
 	return val
 }
 
+// GetFloatPtr returns the value of the field as a pointer to float64.
+// Returns nil if the field is empty or missing, otherwise returns a pointer to the parsed value.
+// Use this for optional float fields where 0.0 is a meaningful value distinct from "not set".
+func (r *CSVRow) GetFloatPtr(column string) *float64 {
+	s := r.Get(column)
+	if s == "" {
+		return nil
+	}
+	val, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil
+	}
+	return &val
+}
+
 // GetBool returns the value of the field as a bool.
 // Returns true for "1" or "true" (case-insensitive), false otherwise.
 func (r *CSVRow) GetBool(column string) bool {

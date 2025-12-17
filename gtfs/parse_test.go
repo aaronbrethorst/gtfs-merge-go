@@ -224,8 +224,8 @@ route1,agency1,R1,Route One,The first route,3,http://routes.example.com/route1,F
 	if route.TextColor != "FFFFFF" {
 		t.Errorf("expected TextColor 'FFFFFF', got '%s'", route.TextColor)
 	}
-	if route.SortOrder != 1 {
-		t.Errorf("expected SortOrder 1, got %d", route.SortOrder)
+	if route.SortOrder == nil || *route.SortOrder != 1 {
+		t.Errorf("expected SortOrder 1, got %v", route.SortOrder)
 	}
 	if route.ContinuousPickup != 0 {
 		t.Errorf("expected ContinuousPickup 0, got %d", route.ContinuousPickup)
@@ -324,11 +324,11 @@ trip1,08:15:00,08:16:00,stop2,2,,0,0,0,0,1250.5,0`
 	if st.ContinuousDropOff != 1 {
 		t.Errorf("expected ContinuousDropOff 1, got %d", st.ContinuousDropOff)
 	}
-	if st.ShapeDistTraveled != 0.0 {
-		t.Errorf("expected ShapeDistTraveled 0.0, got %f", st.ShapeDistTraveled)
+	if st.ShapeDistTraveled == nil || *st.ShapeDistTraveled != 0.0 {
+		t.Errorf("expected ShapeDistTraveled 0.0, got %v", st.ShapeDistTraveled)
 	}
-	if st.Timepoint != 1 {
-		t.Errorf("expected Timepoint 1, got %d", st.Timepoint)
+	if st.Timepoint == nil || *st.Timepoint != 1 {
+		t.Errorf("expected Timepoint 1, got %v", st.Timepoint)
 	}
 }
 
@@ -456,14 +456,14 @@ shape1,40.7160,-74.0020,3,500.0`
 	if sp.Sequence != 1 {
 		t.Errorf("expected Sequence 1, got %d", sp.Sequence)
 	}
-	if sp.DistTraveled != 0.0 {
-		t.Errorf("expected DistTraveled 0.0, got %f", sp.DistTraveled)
+	if sp.DistTraveled == nil || *sp.DistTraveled != 0.0 {
+		t.Errorf("expected DistTraveled 0.0, got %v", sp.DistTraveled)
 	}
 
 	// Test second point has distance
 	sp2 := ParseShapePoint(rows[1])
-	if sp2.DistTraveled != 250.5 {
-		t.Errorf("expected DistTraveled 250.5, got %f", sp2.DistTraveled)
+	if sp2.DistTraveled == nil || *sp2.DistTraveled != 250.5 {
+		t.Errorf("expected DistTraveled 250.5, got %v", sp2.DistTraveled)
 	}
 }
 

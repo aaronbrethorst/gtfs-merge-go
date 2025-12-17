@@ -258,7 +258,7 @@ func TestFeedAddShapePoint(t *testing.T) {
 		Lat:          47.6062,
 		Lon:          -122.3321,
 		Sequence:     1,
-		DistTraveled: 0.0,
+		DistTraveled: nil,
 	}
 
 	feed.Shapes["shape1"] = append(feed.Shapes["shape1"], shapePoint)
@@ -421,19 +421,20 @@ func TestFeedSetFeedInfo(t *testing.T) {
 	feed := NewFeed()
 
 	feedInfo := &FeedInfo{
+		FeedID:        "1",
 		PublisherName: "Transit Authority",
 		PublisherURL:  "https://transit.example.com",
 		Lang:          "en",
 		Version:       "1.0",
 	}
 
-	feed.FeedInfo = feedInfo
+	feed.FeedInfos["1"] = feedInfo
 
 	// Verify feed info was set
-	if feed.FeedInfo == nil {
-		t.Fatal("FeedInfo is nil")
+	if len(feed.FeedInfos) == 0 {
+		t.Fatal("FeedInfos is empty")
 	}
-	if feed.FeedInfo.PublisherName != "Transit Authority" {
-		t.Errorf("expected publisher name 'Transit Authority', got '%s'", feed.FeedInfo.PublisherName)
+	if feed.FeedInfos["1"].PublisherName != "Transit Authority" {
+		t.Errorf("expected publisher name 'Transit Authority', got '%s'", feed.FeedInfos["1"].PublisherName)
 	}
 }

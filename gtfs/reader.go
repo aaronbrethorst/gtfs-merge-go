@@ -295,7 +295,11 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 
 	// Read feed_info (optional)
 	if err := readOptionalFileIntoFeed(feed, opener, "feed_info.txt", func(row *CSVRow) {
-		feed.FeedInfo = ParseFeedInfo(row)
+		fi := ParseFeedInfo(row)
+		if fi.FeedID == "" {
+			fi.FeedID = "1" // Java assigns 1 to feeds without feed_id
+		}
+		feed.FeedInfos[fi.FeedID] = fi // overwrites if same id
 	}); err != nil {
 		return fmt.Errorf("reading feed_info.txt: %w", err)
 	}

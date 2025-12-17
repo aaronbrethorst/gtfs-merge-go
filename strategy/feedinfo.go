@@ -1,9 +1,5 @@
 package strategy
 
-import (
-	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
-)
-
 // FeedInfoMergeStrategy handles merging of feed info between feeds
 type FeedInfoMergeStrategy struct {
 	BaseStrategy
@@ -16,50 +12,14 @@ func NewFeedInfoMergeStrategy() *FeedInfoMergeStrategy {
 	}
 }
 
-// Merge performs the merge operation for feed info
+// Merge performs the merge operation for feed info.
+// FeedInfo entries are keyed by feed_id. When source and target have the same
+// feed_id, the source entry overwrites the target (last-read wins), matching
+// Java's behavior.
 func (s *FeedInfoMergeStrategy) Merge(ctx *MergeContext) error {
-	if ctx.Source.FeedInfo == nil {
-		return nil
+	// Merge source FeedInfos into target (later overwrites earlier for same key)
+	for id, fi := range ctx.Source.FeedInfos {
+		ctx.Target.FeedInfos[id] = fi
 	}
-
-	if ctx.Target.FeedInfo == nil {
-		// No existing feed info - just copy
-		ctx.Target.FeedInfo = &gtfs.FeedInfo{
-			PublisherName: ctx.Source.FeedInfo.PublisherName,
-			PublisherURL:  ctx.Source.FeedInfo.PublisherURL,
-			Lang:          ctx.Source.FeedInfo.Lang,
-			DefaultLang:   ctx.Source.FeedInfo.DefaultLang,
-			StartDate:     ctx.Source.FeedInfo.StartDate,
-			EndDate:       ctx.Source.FeedInfo.EndDate,
-			Version:       ctx.Source.FeedInfo.Version,
-			ContactEmail:  ctx.Source.FeedInfo.ContactEmail,
-			ContactURL:    ctx.Source.FeedInfo.ContactURL,
-			FeedID:        ctx.Source.FeedInfo.FeedID,
-		}
-	} else if s.DuplicateDetection == DetectionIdentity {
-		// Merge: combine versions and expand date ranges
-		existing := ctx.Target.FeedInfo
-		source := ctx.Source.FeedInfo
-
-		// Combine versions
-		if source.Version != "" && existing.Version != source.Version {
-			if existing.Version != "" {
-				existing.Version = existing.Version + ", " + source.Version
-			} else {
-				existing.Version = source.Version
-			}
-		}
-
-		// Expand date range - take earliest start date
-		if source.StartDate != "" && (existing.StartDate == "" || source.StartDate < existing.StartDate) {
-			existing.StartDate = source.StartDate
-		}
-
-		// Expand date range - take latest end date
-		if source.EndDate != "" && (existing.EndDate == "" || source.EndDate > existing.EndDate) {
-			existing.EndDate = source.EndDate
-		}
-	}
-
 	return nil
 }
