@@ -105,12 +105,17 @@ func (m *Merger) MergeFeeds(feeds []*gtfs.Feed) (*gtfs.Feed, error) {
 
 	// Process feeds in REVERSE order (last specified first) to match Java behavior.
 	// Java reads feeds from last to first on the command line.
-	// The prefix is based on the PROCESSING order: first processed → "" (no prefix), second → "b-", etc.
+	// The prefix is based on the ORIGINAL array index: index 0 → "a-", index 1 → "b-", etc.
+	// The last feed (first processed) gets no prefix.
 	// The prefix is only applied when there's an ID collision during merge.
 	for i := len(feeds) - 1; i >= 0; i-- {
-		// Calculate processing order (0 for first processed, 1 for second, etc.)
-		processOrder := (len(feeds) - 1) - i
-		prefix := GetPrefixForIndex(processOrder)
+		// Last feed (first processed) gets no prefix, others get prefix based on original index
+		var prefix string
+		if i == len(feeds)-1 {
+			prefix = ""
+		} else {
+			prefix = GetPrefixForIndex(i + 1)
+		}
 
 		ctx := strategy.NewMergeContext(feeds[i], target, prefix)
 		ctx.SetSharedShapeCounter(&sharedShapeCounter)

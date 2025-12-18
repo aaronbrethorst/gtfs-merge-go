@@ -556,11 +556,12 @@ func TestMergePrefixSequence(t *testing.T) {
 		t.Fatalf("merge failed: %v", err)
 	}
 
-	// Then: prefixes are applied correctly (Java behavior: reverse processing order)
+	// Then: prefixes are applied correctly (Java behavior: original array index)
 	// Feeds processed in REVERSE order: C first, B second, A third
-	// - C (index 2, process order 0) processed first: no collision → "shared"
-	// - B (index 1, process order 1) collision → prefix "a-" → "a-shared"
-	// - A (index 0, process order 2) collision → prefix "b-" → "b-shared"
+	// Prefix is based on ORIGINAL array index (not process order):
+	// - C (index 2, last feed) → no prefix → "shared"
+	// - B (index 1) → prefix "b-" → "b-shared"
+	// - A (index 0) → prefix "a-" → "a-shared"
 	if len(merged.Agencies) != 3 {
 		t.Errorf("expected 3 agencies, got %d", len(merged.Agencies))
 	}
@@ -573,15 +574,15 @@ func TestMergePrefixSequence(t *testing.T) {
 		}
 	}
 
-	// Verify the names match the expected prefix order (Java-compatible: reverse processing)
+	// Verify the names match the expected prefix order (Java-compatible: original array index)
 	if merged.Agencies["shared"].Name != "Agency C" {
-		t.Errorf("expected 'shared' to be Agency C (processed first, no prefix), got %s", merged.Agencies["shared"].Name)
+		t.Errorf("expected 'shared' to be Agency C (last feed, no prefix), got %s", merged.Agencies["shared"].Name)
 	}
-	if merged.Agencies["a-shared"].Name != "Agency B" {
-		t.Errorf("expected 'a-shared' to be Agency B (process order 1), got %s", merged.Agencies["a-shared"].Name)
+	if merged.Agencies["a-shared"].Name != "Agency A" {
+		t.Errorf("expected 'a-shared' to be Agency A (index 0), got %s", merged.Agencies["a-shared"].Name)
 	}
-	if merged.Agencies["b-shared"].Name != "Agency A" {
-		t.Errorf("expected 'b-shared' to be Agency A (process order 2), got %s", merged.Agencies["b-shared"].Name)
+	if merged.Agencies["b-shared"].Name != "Agency B" {
+		t.Errorf("expected 'b-shared' to be Agency B (index 1), got %s", merged.Agencies["b-shared"].Name)
 	}
 }
 
