@@ -113,19 +113,20 @@ func TestMergeContextIDMappings(t *testing.T) {
 func TestGetPrefixForIndex(t *testing.T) {
 	// Tests the Java-compatible prefix assignment based on ORIGINAL array index.
 	// First feed (index 0) gets no prefix, subsequent feeds get prefixed.
-	// index 1 → "b-", index 2 → "c-", etc.
+	// index 1 → "a-", index 2 → "b-", etc.
 	// The prefix is only applied when there's an ID collision during merge.
 	tests := []struct {
 		index    int
 		expected string
 	}{
 		{0, ""},      // First feed gets no prefix (like Java)
-		{1, "b-"},    // Feed at index 1
-		{2, "c-"},    // Feed at index 2
-		{25, "z-"},   // Feed at index 25 (last letter)
-		{26, "00-"},  // Feed at index 26 (first numeric)
-		{27, "01-"},  // Feed at index 27
-		{125, "99-"}, // Feed at index 125
+		{1, "a-"},    // Feed at index 1: 'a' + 1 - 1 = 'a'
+		{2, "b-"},    // Feed at index 2: 'a' + 2 - 1 = 'b'
+		{25, "y-"},   // Feed at index 25: 'a' + 25 - 1 = 'a' + 24 = 'y'
+		{26, "z-"},   // Feed at index 26: 'a' + 26 - 1 = 'a' + 25 = 'z' (last letter)
+		{27, "00-"},  // Feed at index 27 (first numeric)
+		{28, "01-"},  // Feed at index 28
+		{126, "99-"}, // Feed at index 126
 	}
 
 	for _, tt := range tests {
