@@ -2,31 +2,31 @@ package gtfs
 
 // Feed represents a complete GTFS feed
 type Feed struct {
-	Agencies       map[AgencyID]*Agency
-	AgencyOrder    []AgencyID // Tracks insertion order for deterministic output
-	Stops          map[StopID]*Stop
-	StopOrder      []StopID // Tracks insertion order for deterministic output
-	Routes         map[RouteID]*Route
-	RouteOrder     []RouteID // Tracks insertion order for deterministic output
-	Trips          map[TripID]*Trip
-	TripOrder      []TripID // Tracks insertion order for deterministic output
-	StopTimes      []*StopTime // Keyed by TripID+Sequence (already ordered)
-	Calendars      map[ServiceID]*Calendar
-	CalendarOrder  []ServiceID // Tracks insertion order for deterministic output
-	CalendarDates  map[ServiceID][]*CalendarDate
+	Agencies          map[AgencyID]*Agency
+	AgencyOrder       []AgencyID // Tracks insertion order for deterministic output
+	Stops             map[StopID]*Stop
+	StopOrder         []StopID // Tracks insertion order for deterministic output
+	Routes            map[RouteID]*Route
+	RouteOrder        []RouteID // Tracks insertion order for deterministic output
+	Trips             map[TripID]*Trip
+	TripOrder         []TripID    // Tracks insertion order for deterministic output
+	StopTimes         []*StopTime // Keyed by TripID+Sequence (already ordered)
+	Calendars         map[ServiceID]*Calendar
+	CalendarOrder     []ServiceID // Tracks insertion order for deterministic output
+	CalendarDates     map[ServiceID][]*CalendarDate
 	CalendarDateOrder []ServiceID // Tracks insertion order for deterministic output
-	Shapes         map[ShapeID][]*ShapePoint
-	ShapeOrder     []ShapeID // Tracks insertion order for deterministic output
-	Frequencies    []*Frequency // Already ordered
-	Transfers      []*Transfer  // Already ordered
-	FareAttributes map[FareID]*FareAttribute
-	FareAttrOrder  []FareID // Tracks insertion order for deterministic output
-	FareRules      []*FareRule // Already ordered
-	FeedInfos      map[string]*FeedInfo // keyed by feed_id
-	FeedInfoOrder  []string // Tracks insertion order for deterministic output
-	Areas          map[AreaID]*Area
-	AreaOrder      []AreaID // Tracks insertion order for deterministic output
-	Pathways       []*Pathway // Already ordered
+	Shapes            map[ShapeID][]*ShapePoint
+	ShapeOrder        []ShapeID    // Tracks insertion order for deterministic output
+	Frequencies       []*Frequency // Already ordered
+	Transfers         []*Transfer  // Already ordered
+	FareAttributes    map[FareID]*FareAttribute
+	FareAttrOrder     []FareID             // Tracks insertion order for deterministic output
+	FareRules         []*FareRule          // Already ordered
+	FeedInfos         map[string]*FeedInfo // keyed by feed_id
+	FeedInfoOrder     []string             // Tracks insertion order for deterministic output
+	Areas             map[AreaID]*Area
+	AreaOrder         []AreaID   // Tracks insertion order for deterministic output
+	Pathways          []*Pathway // Already ordered
 
 	// ColumnSets tracks which columns were present in each file when reading.
 	// Key is the filename (e.g., "stop_times.txt"), value is set of column names.
