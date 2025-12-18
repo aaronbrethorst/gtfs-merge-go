@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // WriteToPath writes a GTFS feed to a zip file at the given path.
@@ -134,12 +135,23 @@ func formatFloat(v float64) string {
 }
 
 // formatFloatPtr formats a pointer to float64.
-// Returns empty string for nil, otherwise formats the value with 6 decimal places.
+// Returns empty string for nil, otherwise formats the value with minimal precision
+// but ensures at least one decimal place (e.g., "0.0" not "0").
 func formatFloatPtr(v *float64) string {
 	if v == nil {
 		return ""
 	}
-	return strconv.FormatFloat(*v, 'f', 6, 64)
+	s := strconv.FormatFloat(*v, 'f', -1, 64)
+	// Ensure at least one decimal place to match Java output
+	if !strings.Contains(s, ".") {
+		s += ".0"
+	}
+	return s
+}
+
+// formatLatLon formats latitude/longitude with 6 decimal places to match Java output.
+func formatLatLon(v float64) string {
+	return strconv.FormatFloat(v, 'f', 6, 64)
 }
 
 // formatPriceFloat formats a price with 6 decimal places, including when the value is 0
@@ -232,7 +244,17 @@ func writeAgencies(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, a := range feed.Agencies {
+	// Sort agencies by ID for deterministic output
+	agencyIDs := make([]AgencyID, 0, len(feed.Agencies))
+	for id := range feed.Agencies {
+		agencyIDs = append(agencyIDs, id)
+	}
+	sort.Slice(agencyIDs, func(i, j int) bool {
+		return string(agencyIDs[i]) < string(agencyIDs[j])
+	})
+
+	for _, id := range agencyIDs {
+		a := feed.Agencies[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(a)
@@ -261,11 +283,11 @@ func writeStops(zw *zip.Writer, feed *Feed) error {
 	}
 	allCols := []colDef{
 		{"stop_id", func(s *Stop) string { return string(s.ID) }},
-		{"stop_code", func(s *Stop) string { return s.Code }},
 		{"stop_name", func(s *Stop) string { return s.Name }},
+		{"stop_lat", func(s *Stop) string { return formatLatLon(s.Lat) }},
+		{"stop_lon", func(s *Stop) string { return formatLatLon(s.Lon) }},
+		{"stop_code", func(s *Stop) string { return s.Code }},
 		{"stop_desc", func(s *Stop) string { return s.Desc }},
-		{"stop_lat", func(s *Stop) string { return strconv.FormatFloat(s.Lat, 'f', -1, 64) }},
-		{"stop_lon", func(s *Stop) string { return strconv.FormatFloat(s.Lon, 'f', -1, 64) }},
 		{"zone_id", func(s *Stop) string { return s.ZoneID }},
 		{"stop_url", func(s *Stop) string { return s.URL }},
 		{"location_type", func(s *Stop) string { return formatOptionalInt(s.LocationType) }},
@@ -344,7 +366,17 @@ func writeStops(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, s := range feed.Stops {
+	// Sort stops by ID for deterministic output
+	stopIDs := make([]StopID, 0, len(feed.Stops))
+	for id := range feed.Stops {
+		stopIDs = append(stopIDs, id)
+	}
+	sort.Slice(stopIDs, func(i, j int) bool {
+		return string(stopIDs[i]) < string(stopIDs[j])
+	})
+
+	for _, id := range stopIDs {
+		s := feed.Stops[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(s)
@@ -372,8 +404,8 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		getter func(*Route) string
 	}
 	allCols := []colDef{
-		{"route_id", func(r *Route) string { return string(r.ID) }},
 		{"agency_id", func(r *Route) string { return string(r.AgencyID) }},
+		{"route_id", func(r *Route) string { return string(r.ID) }},
 		{"route_short_name", func(r *Route) string { return r.ShortName }},
 		{"route_long_name", func(r *Route) string { return r.LongName }},
 		{"route_desc", func(r *Route) string { return r.Desc }},
@@ -455,7 +487,17 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, r := range feed.Routes {
+	// Sort routes by ID for deterministic output
+	routeIDs := make([]RouteID, 0, len(feed.Routes))
+	for id := range feed.Routes {
+		routeIDs = append(routeIDs, id)
+	}
+	sort.Slice(routeIDs, func(i, j int) bool {
+		return string(routeIDs[i]) < string(routeIDs[j])
+	})
+
+	for _, id := range routeIDs {
+		r := feed.Routes[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(r)
@@ -483,8 +525,8 @@ func writeTrips(zw *zip.Writer, feed *Feed) error {
 		getter func(*Trip) string
 	}
 	allCols := []colDef{
-		{"trip_id", func(t *Trip) string { return string(t.ID) }},
 		{"route_id", func(t *Trip) string { return string(t.RouteID) }},
+		{"trip_id", func(t *Trip) string { return string(t.ID) }},
 		{"service_id", func(t *Trip) string { return string(t.ServiceID) }},
 		{"trip_headsign", func(t *Trip) string { return t.Headsign }},
 		{"trip_short_name", func(t *Trip) string { return t.ShortName }},
@@ -554,7 +596,17 @@ func writeTrips(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, t := range feed.Trips {
+	// Sort trips by ID for deterministic output
+	tripIDs := make([]TripID, 0, len(feed.Trips))
+	for id := range feed.Trips {
+		tripIDs = append(tripIDs, id)
+	}
+	sort.Slice(tripIDs, func(i, j int) bool {
+		return string(tripIDs[i]) < string(tripIDs[j])
+	})
+
+	for _, id := range tripIDs {
+		t := feed.Trips[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(t)
@@ -583,17 +635,17 @@ func writeStopTimes(zw *zip.Writer, feed *Feed) error {
 	}
 	allCols := []colDef{
 		{"trip_id", func(st *StopTime) string { return string(st.TripID) }},
+		{"stop_id", func(st *StopTime) string { return string(st.StopID) }},
 		{"arrival_time", func(st *StopTime) string { return st.ArrivalTime }},
 		{"departure_time", func(st *StopTime) string { return st.DepartureTime }},
-		{"stop_id", func(st *StopTime) string { return string(st.StopID) }},
+		{"timepoint", func(st *StopTime) string { return formatIntPtr(st.Timepoint) }},
 		{"stop_sequence", func(st *StopTime) string { return formatInt(st.StopSequence) }},
 		{"stop_headsign", func(st *StopTime) string { return st.StopHeadsign }},
+		{"shape_dist_traveled", func(st *StopTime) string { return formatFloatPtr(st.ShapeDistTraveled) }},
 		{"pickup_type", func(st *StopTime) string { return formatOptionalInt(st.PickupType) }},
 		{"drop_off_type", func(st *StopTime) string { return formatOptionalInt(st.DropOffType) }},
 		{"continuous_pickup", func(st *StopTime) string { return formatOptionalInt(st.ContinuousPickup) }},
 		{"continuous_drop_off", func(st *StopTime) string { return formatOptionalInt(st.ContinuousDropOff) }},
-		{"shape_dist_traveled", func(st *StopTime) string { return formatFloatPtr(st.ShapeDistTraveled) }},
-		{"timepoint", func(st *StopTime) string { return formatIntPtr(st.Timepoint) }},
 	}
 
 	// Required columns are always included
@@ -714,7 +766,17 @@ func writeCalendars(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, c := range feed.Calendars {
+	// Sort calendars by service_id for deterministic output
+	serviceIDs := make([]ServiceID, 0, len(feed.Calendars))
+	for id := range feed.Calendars {
+		serviceIDs = append(serviceIDs, id)
+	}
+	sort.Slice(serviceIDs, func(i, j int) bool {
+		return string(serviceIDs[i]) < string(serviceIDs[j])
+	})
+
+	for _, id := range serviceIDs {
+		c := feed.Calendars[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(c)
@@ -764,8 +826,24 @@ func writeCalendarDates(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, dates := range feed.CalendarDates {
-		for _, cd := range dates {
+	// Sort by service_id, then by date for deterministic output
+	serviceIDs := make([]ServiceID, 0, len(feed.CalendarDates))
+	for id := range feed.CalendarDates {
+		serviceIDs = append(serviceIDs, id)
+	}
+	sort.Slice(serviceIDs, func(i, j int) bool {
+		return string(serviceIDs[i]) < string(serviceIDs[j])
+	})
+
+	for _, serviceID := range serviceIDs {
+		dates := feed.CalendarDates[serviceID]
+		// Sort dates within each service_id
+		sortedDates := make([]*CalendarDate, len(dates))
+		copy(sortedDates, dates)
+		sort.Slice(sortedDates, func(i, j int) bool {
+			return sortedDates[i].Date < sortedDates[j].Date
+		})
+		for _, cd := range sortedDates {
 			record := make([]string, len(activeCols))
 			for i, col := range activeCols {
 				record[i] = col.getter(cd)
@@ -795,9 +873,9 @@ func writeShapes(zw *zip.Writer, feed *Feed) error {
 	}
 	allCols := []colDef{
 		{"shape_id", func(sp *ShapePoint) string { return string(sp.ShapeID) }},
-		{"shape_pt_lat", func(sp *ShapePoint) string { return strconv.FormatFloat(sp.Lat, 'f', -1, 64) }},
-		{"shape_pt_lon", func(sp *ShapePoint) string { return strconv.FormatFloat(sp.Lon, 'f', -1, 64) }},
 		{"shape_pt_sequence", func(sp *ShapePoint) string { return formatInt(sp.Sequence) }},
+		{"shape_pt_lat", func(sp *ShapePoint) string { return formatLatLon(sp.Lat) }},
+		{"shape_pt_lon", func(sp *ShapePoint) string { return formatLatLon(sp.Lon) }},
 		{"shape_dist_traveled", func(sp *ShapePoint) string { return formatFloatPtr(sp.DistTraveled) }},
 	}
 
@@ -929,7 +1007,17 @@ func writeFrequencies(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, f := range feed.Frequencies {
+	// Sort frequencies by trip_id, start_time for deterministic output
+	sortedFreqs := make([]*Frequency, len(feed.Frequencies))
+	copy(sortedFreqs, feed.Frequencies)
+	sort.Slice(sortedFreqs, func(i, j int) bool {
+		if sortedFreqs[i].TripID != sortedFreqs[j].TripID {
+			return string(sortedFreqs[i].TripID) < string(sortedFreqs[j].TripID)
+		}
+		return sortedFreqs[i].StartTime < sortedFreqs[j].StartTime
+	})
+
+	for _, f := range sortedFreqs {
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(f)
@@ -958,11 +1046,11 @@ func writeTransfers(zw *zip.Writer, feed *Feed) error {
 	}
 	allCols := []colDef{
 		{"from_stop_id", func(t *Transfer) string { return string(t.FromStopID) }},
+		{"from_route_id", func(t *Transfer) string { return string(t.FromRouteID) }},
 		{"to_stop_id", func(t *Transfer) string { return string(t.ToStopID) }},
+		{"to_route_id", func(t *Transfer) string { return string(t.ToRouteID) }},
 		{"transfer_type", func(t *Transfer) string { return formatOptionalInt(t.TransferType) }},
 		{"min_transfer_time", func(t *Transfer) string { return formatOptionalInt(t.MinTransferTime) }},
-		{"from_route_id", func(t *Transfer) string { return string(t.FromRouteID) }},
-		{"to_route_id", func(t *Transfer) string { return string(t.ToRouteID) }},
 		{"from_trip_id", func(t *Transfer) string { return string(t.FromTripID) }},
 		{"to_trip_id", func(t *Transfer) string { return string(t.ToTripID) }},
 	}
@@ -992,7 +1080,17 @@ func writeTransfers(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, t := range feed.Transfers {
+	// Sort transfers by from_stop_id, then to_stop_id for deterministic output
+	sortedTransfers := make([]*Transfer, len(feed.Transfers))
+	copy(sortedTransfers, feed.Transfers)
+	sort.Slice(sortedTransfers, func(i, j int) bool {
+		if sortedTransfers[i].FromStopID != sortedTransfers[j].FromStopID {
+			return string(sortedTransfers[i].FromStopID) < string(sortedTransfers[j].FromStopID)
+		}
+		return string(sortedTransfers[i].ToStopID) < string(sortedTransfers[j].ToStopID)
+	})
+
+	for _, t := range sortedTransfers {
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(t)
@@ -1058,7 +1156,17 @@ func writeFareAttributes(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, fa := range feed.FareAttributes {
+	// Sort fare attributes by fare_id for deterministic output
+	fareIDs := make([]FareID, 0, len(feed.FareAttributes))
+	for id := range feed.FareAttributes {
+		fareIDs = append(fareIDs, id)
+	}
+	sort.Slice(fareIDs, func(i, j int) bool {
+		return string(fareIDs[i]) < string(fareIDs[j])
+	})
+
+	for _, id := range fareIDs {
+		fa := feed.FareAttributes[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(fa)
@@ -1110,7 +1218,23 @@ func writeFareRules(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, fr := range feed.FareRules {
+	// Sort fare rules by fare_id, route_id, origin_id, destination_id for deterministic output
+	sortedFareRules := make([]*FareRule, len(feed.FareRules))
+	copy(sortedFareRules, feed.FareRules)
+	sort.Slice(sortedFareRules, func(i, j int) bool {
+		if sortedFareRules[i].FareID != sortedFareRules[j].FareID {
+			return string(sortedFareRules[i].FareID) < string(sortedFareRules[j].FareID)
+		}
+		if sortedFareRules[i].RouteID != sortedFareRules[j].RouteID {
+			return string(sortedFareRules[i].RouteID) < string(sortedFareRules[j].RouteID)
+		}
+		if sortedFareRules[i].OriginID != sortedFareRules[j].OriginID {
+			return sortedFareRules[i].OriginID < sortedFareRules[j].OriginID
+		}
+		return sortedFareRules[i].DestinationID < sortedFareRules[j].DestinationID
+	})
+
+	for _, fr := range sortedFareRules {
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(fr)
@@ -1138,6 +1262,7 @@ func writeFeedInfo(zw *zip.Writer, feed *Feed) error {
 		getter func(*FeedInfo) string
 	}
 	allCols := []colDef{
+		{"feed_id", func(fi *FeedInfo) string { return fi.FeedID }},
 		{"feed_publisher_name", func(fi *FeedInfo) string { return fi.PublisherName }},
 		{"feed_publisher_url", func(fi *FeedInfo) string { return fi.PublisherURL }},
 		{"feed_lang", func(fi *FeedInfo) string { return fi.Lang }},
@@ -1147,7 +1272,6 @@ func writeFeedInfo(zw *zip.Writer, feed *Feed) error {
 		{"feed_version", func(fi *FeedInfo) string { return fi.Version }},
 		{"feed_contact_email", func(fi *FeedInfo) string { return fi.ContactEmail }},
 		{"feed_contact_url", func(fi *FeedInfo) string { return fi.ContactURL }},
-		{"feed_id", func(fi *FeedInfo) string { return fi.FeedID }},
 	}
 
 	// Filter to only columns present in source data
@@ -1233,7 +1357,17 @@ func writeAreas(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, a := range feed.Areas {
+	// Sort areas by area_id for deterministic output
+	areaIDs := make([]AreaID, 0, len(feed.Areas))
+	for id := range feed.Areas {
+		areaIDs = append(areaIDs, id)
+	}
+	sort.Slice(areaIDs, func(i, j int) bool {
+		return string(areaIDs[i]) < string(areaIDs[j])
+	})
+
+	for _, id := range areaIDs {
+		a := feed.Areas[id]
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(a)
@@ -1335,7 +1469,14 @@ func writePathways(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	for _, p := range feed.Pathways {
+	// Sort pathways by pathway_id for deterministic output
+	sortedPathways := make([]*Pathway, len(feed.Pathways))
+	copy(sortedPathways, feed.Pathways)
+	sort.Slice(sortedPathways, func(i, j int) bool {
+		return sortedPathways[i].ID < sortedPathways[j].ID
+	})
+
+	for _, p := range sortedPathways {
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(p)

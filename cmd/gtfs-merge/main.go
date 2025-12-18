@@ -57,12 +57,14 @@ func parseArgs(args []string) (*config, error) {
 				if mode != "none" && mode != "identity" && mode != "fuzzy" {
 					return nil, fmt.Errorf("invalid duplicate detection mode: %q (must be none, identity, or fuzzy)", mode)
 				}
-				cfg.duplicateDetection = mode
-				// If we have a current file, apply to it
+				// If we have a current file, apply to it only (per-file config)
+				// Otherwise set as global default
 				if currentFile != "" {
 					fc := cfg.files[currentFile]
 					fc.detection = mode
 					cfg.files[currentFile] = fc
+				} else {
+					cfg.duplicateDetection = mode
 				}
 			case strings.HasPrefix(arg, "--logging="):
 				cfg.logging = strings.TrimPrefix(arg, "--logging=")

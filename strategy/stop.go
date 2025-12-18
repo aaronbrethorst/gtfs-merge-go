@@ -41,13 +41,12 @@ func (s *StopMergeStrategy) SetConcurrentWorkers(n int) {
 // Merge performs the merge operation for stops
 func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 	for _, stop := range ctx.Source.Stops {
-		// Check for duplicates based on detection mode
+		// Check for identity duplicates (same ID in target)
 		if s.DuplicateDetection == DetectionIdentity {
-			if existing, found := ctx.Target.Stops[stop.ID]; found {
-				// Duplicate detected - map source ID to existing target ID
-				ctx.StopIDMapping[stop.ID] = existing.ID
+			if _, found := ctx.Target.Stops[stop.ID]; found {
+				// Identity duplicate detected - map source ID to existing target ID
+				ctx.StopIDMapping[stop.ID] = stop.ID
 
-				// Handle logging based on configuration
 				switch s.DuplicateLogging {
 				case LogWarning:
 					log.Printf("WARNING: Duplicate stop detected with ID %q (keeping existing)", stop.ID)
@@ -60,7 +59,7 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// Check for fuzzy duplicates
+		// Check for fuzzy duplicates (only applies to fuzzy mode)
 		if s.DuplicateDetection == DetectionFuzzy {
 			if matchID := s.findFuzzyMatch(ctx, stop); matchID != "" {
 				// Fuzzy duplicate detected - map source ID to existing target ID

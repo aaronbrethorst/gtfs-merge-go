@@ -29,20 +29,40 @@ func (s *TransferMergeStrategy) Merge(ctx *MergeContext) error {
 		fromTripID      gtfs.TripID
 		toTripID        gtfs.TripID
 	}
-	existingKeys := make(map[transferKey]bool)
-	if s.DuplicateDetection == DetectionIdentity {
-		for _, existing := range ctx.Target.Transfers {
-			existingKeys[transferKey{
-				existing.FromStopID,
-				existing.ToStopID,
-				existing.TransferType,
-				existing.MinTransferTime,
-				existing.FromRouteID,
-				existing.ToRouteID,
-				existing.FromTripID,
-				existing.ToTripID,
-			}] = true
+
+	// makeKey creates a normalized key for a transfer.
+	// For symmetric transfers (from_stop_id == to_stop_id), route and trip IDs
+	// are normalized to canonical order (smaller first) to ensure consistent deduplication.
+	makeKey := func(fromStop, toStop gtfs.StopID, transferType, minTransferTime int,
+		fromRoute, toRoute gtfs.RouteID, fromTrip, toTrip gtfs.TripID) transferKey {
+		// Normalize symmetric transfers
+		if fromStop == toStop {
+			// Normalize route IDs: ensure fromRouteID <= toRouteID
+			if fromRoute > toRoute {
+				fromRoute, toRoute = toRoute, fromRoute
+			}
+			// Normalize trip IDs: ensure fromTripID <= toTripID
+			if fromTrip > toTrip {
+				fromTrip, toTrip = toTrip, fromTrip
+			}
 		}
+		return transferKey{
+			fromStop, toStop, transferType, minTransferTime,
+			fromRoute, toRoute, fromTrip, toTrip,
+		}
+	}
+
+	// Always build the existing keys index for deduplication
+	// Transfers are always deduplicated to avoid duplicates in output
+	existingKeys := make(map[transferKey]bool)
+	for _, existing := range ctx.Target.Transfers {
+		key := makeKey(
+			existing.FromStopID, existing.ToStopID,
+			existing.TransferType, existing.MinTransferTime,
+			existing.FromRouteID, existing.ToRouteID,
+			existing.FromTripID, existing.ToTripID,
+		)
+		existingKeys[key] = true
 	}
 
 	for _, transfer := range ctx.Source.Transfers {
@@ -87,24 +107,18 @@ func (s *TransferMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 		}
 
-		// Check for duplicates using O(1) lookup
-		if s.DuplicateDetection == DetectionIdentity {
-			key := transferKey{
-				fromStopID,
-				toStopID,
-				transfer.TransferType,
-				transfer.MinTransferTime,
-				fromRouteID,
-				toRouteID,
-				fromTripID,
-				toTripID,
-			}
-			if existingKeys[key] {
-				continue
-			}
-			// Add to index for subsequent source items
-			existingKeys[key] = true
+		// Check for duplicates using O(1) lookup (always deduplicate transfers)
+		key := makeKey(
+			fromStopID, toStopID,
+			transfer.TransferType, transfer.MinTransferTime,
+			fromRouteID, toRouteID,
+			fromTripID, toTripID,
+		)
+		if existingKeys[key] {
+			continue
 		}
+		// Add to index for subsequent source items
+		existingKeys[key] = true
 
 		newTransfer := &gtfs.Transfer{
 			FromStopID:      fromStopID,

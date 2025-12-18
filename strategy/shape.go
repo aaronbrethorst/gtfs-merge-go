@@ -67,7 +67,7 @@ func (s *ShapeMergeStrategy) Merge(ctx *MergeContext) error {
 				ShapeID:      newID,
 				Lat:          point.Lat,
 				Lon:          point.Lon,
-				Sequence:     ctx.NextShapeSequence(), // Use global counter to match Java
+				Sequence:     ctx.NextShapeSequence(), // Use global counter for deterministic output
 				DistTraveled: point.DistTraveled,
 			}
 			ctx.Target.Shapes[newID] = append(ctx.Target.Shapes[newID], newPoint)
