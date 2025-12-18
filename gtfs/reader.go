@@ -201,6 +201,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readFileIntoFeed(feed, opener, "agency.txt", func(row *CSVRow) {
 		agency := ParseAgency(row)
 		feed.Agencies[agency.ID] = agency
+		feed.AgencyOrder = append(feed.AgencyOrder, agency.ID)
 	}); err != nil {
 		return fmt.Errorf("reading agency.txt: %w", err)
 	}
@@ -209,6 +210,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readFileIntoFeed(feed, opener, "stops.txt", func(row *CSVRow) {
 		stop := ParseStop(row)
 		feed.Stops[stop.ID] = stop
+		feed.StopOrder = append(feed.StopOrder, stop.ID)
 	}); err != nil {
 		return fmt.Errorf("reading stops.txt: %w", err)
 	}
@@ -217,6 +219,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readFileIntoFeed(feed, opener, "routes.txt", func(row *CSVRow) {
 		route := ParseRoute(row)
 		feed.Routes[route.ID] = route
+		feed.RouteOrder = append(feed.RouteOrder, route.ID)
 	}); err != nil {
 		return fmt.Errorf("reading routes.txt: %w", err)
 	}
@@ -225,6 +228,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readFileIntoFeed(feed, opener, "trips.txt", func(row *CSVRow) {
 		trip := ParseTrip(row)
 		feed.Trips[trip.ID] = trip
+		feed.TripOrder = append(feed.TripOrder, trip.ID)
 	}); err != nil {
 		return fmt.Errorf("reading trips.txt: %w", err)
 	}
@@ -241,6 +245,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readOptionalFileIntoFeed(feed, opener, "calendar.txt", func(row *CSVRow) {
 		calendar := ParseCalendar(row)
 		feed.Calendars[calendar.ServiceID] = calendar
+		feed.CalendarOrder = append(feed.CalendarOrder, calendar.ServiceID)
 	}); err != nil {
 		return fmt.Errorf("reading calendar.txt: %w", err)
 	}
@@ -248,6 +253,10 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	// Read calendar_dates (optional)
 	if err := readOptionalFileIntoFeed(feed, opener, "calendar_dates.txt", func(row *CSVRow) {
 		calDate := ParseCalendarDate(row)
+		// Only track order for first occurrence of each service_id
+		if _, exists := feed.CalendarDates[calDate.ServiceID]; !exists {
+			feed.CalendarDateOrder = append(feed.CalendarDateOrder, calDate.ServiceID)
+		}
 		feed.CalendarDates[calDate.ServiceID] = append(feed.CalendarDates[calDate.ServiceID], calDate)
 	}); err != nil {
 		return fmt.Errorf("reading calendar_dates.txt: %w", err)
@@ -256,6 +265,10 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	// Read shapes (optional)
 	if err := readOptionalFileIntoFeed(feed, opener, "shapes.txt", func(row *CSVRow) {
 		shapePoint := ParseShapePoint(row)
+		// Only track order for first occurrence of each shape_id
+		if _, exists := feed.Shapes[shapePoint.ShapeID]; !exists {
+			feed.ShapeOrder = append(feed.ShapeOrder, shapePoint.ShapeID)
+		}
 		feed.Shapes[shapePoint.ShapeID] = append(feed.Shapes[shapePoint.ShapeID], shapePoint)
 	}); err != nil {
 		return fmt.Errorf("reading shapes.txt: %w", err)
@@ -281,6 +294,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readOptionalFileIntoFeed(feed, opener, "fare_attributes.txt", func(row *CSVRow) {
 		fareAttr := ParseFareAttribute(row)
 		feed.FareAttributes[fareAttr.FareID] = fareAttr
+		feed.FareAttrOrder = append(feed.FareAttrOrder, fareAttr.FareID)
 	}); err != nil {
 		return fmt.Errorf("reading fare_attributes.txt: %w", err)
 	}
@@ -300,6 +314,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 			fi.FeedID = "1" // Java assigns 1 to feeds without feed_id
 		}
 		feed.FeedInfos[fi.FeedID] = fi // overwrites if same id
+		feed.FeedInfoOrder = append(feed.FeedInfoOrder, fi.FeedID)
 	}); err != nil {
 		return fmt.Errorf("reading feed_info.txt: %w", err)
 	}
@@ -308,6 +323,7 @@ func readFeedFiles(feed *Feed, opener func(string) (io.ReadCloser, error)) error
 	if err := readOptionalFileIntoFeed(feed, opener, "areas.txt", func(row *CSVRow) {
 		area := ParseArea(row)
 		feed.Areas[area.ID] = area
+		feed.AreaOrder = append(feed.AreaOrder, area.ID)
 	}); err != nil {
 		return fmt.Errorf("reading areas.txt: %w", err)
 	}

@@ -454,21 +454,21 @@ func TestMergeAppliesPrefixToSecondFeed(t *testing.T) {
 		t.Fatalf("merge failed: %v", err)
 	}
 
-	// Then: second feed entities get prefix, first feed (processed first = feedB) has no prefix
-	// Feeds are processed in reverse order, so feedB is processed first (no prefix)
-	// and feedA is processed second (gets "a-" prefix)
+	// Then: entities from first-processed feed have no prefix
+	// Java processes in REVERSE order: feedB is processed first (no prefix)
+	// and feedA is processed second (gets "b-" prefix)
 	if len(merged.Agencies) != 2 {
 		t.Errorf("expected 2 agencies (both preserved with different IDs), got %d", len(merged.Agencies))
 	}
 
-	// feedB was processed first (index 0) -> no prefix
+	// feedB was processed first (last in array) -> no prefix
 	if _, ok := merged.Agencies["shared_id"]; !ok {
-		t.Error("expected agency with original ID 'shared_id' from second feed (processed first)")
+		t.Error("expected agency with original ID 'shared_id' from feedB (processed first in reverse order)")
 	}
 
-	// feedA was processed second (index 1) -> "a-" prefix
-	if _, ok := merged.Agencies["a-shared_id"]; !ok {
-		t.Error("expected agency with prefixed ID 'a-shared_id' from first feed (processed second)")
+	// feedA was processed second (first in array) -> "b-" prefix
+	if _, ok := merged.Agencies["b-shared_id"]; !ok {
+		t.Error("expected agency with prefixed ID 'b-shared_id' from feedA (processed second)")
 	}
 
 	// Same for stops
@@ -556,32 +556,32 @@ func TestMergePrefixSequence(t *testing.T) {
 		t.Fatalf("merge failed: %v", err)
 	}
 
-	// Then: prefixes are applied correctly based on ORIGINAL array index (Java behavior)
-	// Feeds processed in reverse order: C first, B second, A third
-	// - C (index 2) processed first: no collision → "shared"
-	// - B (index 1) collision → prefix from index 1 → "b-shared"
-	// - A (index 0) collision → prefix from index 0 → "a-shared"
+	// Then: prefixes are applied correctly (Java behavior: reverse processing order)
+	// Feeds processed in REVERSE order: C first, B second, A third
+	// - C (index 2, process order 0) processed first: no collision → "shared"
+	// - B (index 1, process order 1) collision → prefix "b-" → "b-shared"
+	// - A (index 0, process order 2) collision → prefix "c-" → "c-shared"
 	if len(merged.Agencies) != 3 {
 		t.Errorf("expected 3 agencies, got %d", len(merged.Agencies))
 	}
 
 	// Check expected IDs exist
-	expectedIDs := []gtfs.AgencyID{"shared", "a-shared", "b-shared"}
+	expectedIDs := []gtfs.AgencyID{"shared", "b-shared", "c-shared"}
 	for _, id := range expectedIDs {
 		if _, ok := merged.Agencies[id]; !ok {
 			t.Errorf("expected agency with ID %s", id)
 		}
 	}
 
-	// Verify the names match the expected prefix order (Java-compatible)
+	// Verify the names match the expected prefix order (Java-compatible: reverse processing)
 	if merged.Agencies["shared"].Name != "Agency C" {
 		t.Errorf("expected 'shared' to be Agency C (processed first, no prefix), got %s", merged.Agencies["shared"].Name)
 	}
 	if merged.Agencies["b-shared"].Name != "Agency B" {
-		t.Errorf("expected 'b-shared' to be Agency B (index 1), got %s", merged.Agencies["b-shared"].Name)
+		t.Errorf("expected 'b-shared' to be Agency B (process order 1), got %s", merged.Agencies["b-shared"].Name)
 	}
-	if merged.Agencies["a-shared"].Name != "Agency A" {
-		t.Errorf("expected 'a-shared' to be Agency A (index 0), got %s", merged.Agencies["a-shared"].Name)
+	if merged.Agencies["c-shared"].Name != "Agency A" {
+		t.Errorf("expected 'c-shared' to be Agency A (process order 2), got %s", merged.Agencies["c-shared"].Name)
 	}
 }
 
@@ -655,7 +655,7 @@ func TestMergeWithIdentityDetection(t *testing.T) {
 	}
 
 	// Then: duplicates are detected and only one copy is kept
-	// Feed B is processed first (no prefix), Feed A is processed second
+	// Java processes in REVERSE order: Feed B is processed first, Feed A second
 	// Since identity detection is on, when Feed A is processed, it detects the duplicate
 	// and maps to the existing entity instead of creating a prefixed one
 	if len(merged.Agencies) != 1 {
@@ -665,9 +665,9 @@ func TestMergeWithIdentityDetection(t *testing.T) {
 		t.Errorf("expected 1 stop with identity detection, got %d", len(merged.Stops))
 	}
 
-	// The first processed feed (B) should be kept
+	// The first processed feed (B, last in array) should be kept
 	if merged.Agencies["agency1"].Name != "Agency B" {
-		t.Errorf("expected Agency B to be kept (processed first), got %s", merged.Agencies["agency1"].Name)
+		t.Errorf("expected Agency B to be kept (processed first in reverse order), got %s", merged.Agencies["agency1"].Name)
 	}
 }
 

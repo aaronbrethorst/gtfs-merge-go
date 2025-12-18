@@ -42,7 +42,16 @@ func (s *TripMergeStrategy) SetConcurrentWorkers(n int) {
 
 // Merge performs the merge operation for trips
 func (s *TripMergeStrategy) Merge(ctx *MergeContext) error {
-	for _, trip := range ctx.Source.Trips {
+	// Sort source trip IDs to match Java output order
+	// Java processes each feed's trips in sorted order within that feed
+	sortedTripIDs := make([]gtfs.TripID, len(ctx.Source.TripOrder))
+	copy(sortedTripIDs, ctx.Source.TripOrder)
+	sort.Slice(sortedTripIDs, func(i, j int) bool {
+		return sortedTripIDs[i] < sortedTripIDs[j]
+	})
+
+	for _, tripID := range sortedTripIDs {
+		trip := ctx.Source.Trips[tripID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if existing, found := ctx.Target.Trips[trip.ID]; found {
@@ -119,6 +128,7 @@ func (s *TripMergeStrategy) Merge(ctx *MergeContext) error {
 			BikesAllowed:         trip.BikesAllowed,
 		}
 		ctx.Target.Trips[newID] = newTrip
+		ctx.Target.TripOrder = append(ctx.Target.TripOrder, newID)
 	}
 
 	return nil

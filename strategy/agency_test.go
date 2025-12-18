@@ -9,20 +9,20 @@ import (
 func TestAgencyMergeNoDuplicates(t *testing.T) {
 	// Given: two feeds with non-overlapping agency IDs
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Transit Authority",
 		URL:      "http://transit.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Agencies[gtfs.AgencyID("agency2")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency2",
 		Name:     "Metro Authority",
 		URL:      "http://metro.example.com",
 		Timezone: "America/Los_Angeles",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAgencyMergeStrategy()
@@ -51,20 +51,20 @@ func TestAgencyMergeNoDuplicates(t *testing.T) {
 func TestAgencyMergeIdentityDuplicate(t *testing.T) {
 	// Given: both feeds have agency with ID "agency1"
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Different Transit",
 		URL:      "http://different.example.com",
 		Timezone: "America/Denver",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Transit Authority",
 		URL:      "http://transit.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAgencyMergeStrategy()
@@ -101,26 +101,26 @@ func TestAgencyMergeIdentityDuplicate(t *testing.T) {
 func TestAgencyMergeUpdatesRouteRefs(t *testing.T) {
 	// Given: source feed has an agency and a route referencing it
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Source Transit",
 		URL:      "http://source.example.com",
 		Timezone: "America/Denver",
-	}
-	source.Routes[gtfs.RouteID("route1")] = &gtfs.Route{
+	})
+	source.AddRoute(&gtfs.Route{
 		ID:       "route1",
 		AgencyID: "agency1",
 		LongName: "Test Route",
 		Type:     3,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Target Transit",
 		URL:      "http://target.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAgencyMergeStrategy()
@@ -145,20 +145,20 @@ func TestAgencyMergeUpdatesRouteRefs(t *testing.T) {
 func TestAgencyMergeLogsWarning(t *testing.T) {
 	// Given: both feeds have agency with same ID and warning logging enabled
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Different Transit",
 		URL:      "http://different.example.com",
 		Timezone: "America/Denver",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Transit Authority",
 		URL:      "http://transit.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAgencyMergeStrategy()
@@ -182,20 +182,20 @@ func TestAgencyMergeLogsWarning(t *testing.T) {
 func TestAgencyMergeErrorOnDuplicate(t *testing.T) {
 	// Given: both feeds have agency with same ID and error logging enabled
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Different Transit",
 		URL:      "http://different.example.com",
 		Timezone: "America/Denver",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Transit Authority",
 		URL:      "http://transit.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAgencyMergeStrategy()
@@ -214,21 +214,21 @@ func TestAgencyMergeErrorOnDuplicate(t *testing.T) {
 func TestAgencyMergeWithPrefix(t *testing.T) {
 	// Given: source feed has an agency that collides with target
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Transit Authority",
 		URL:      "http://transit.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	target := gtfs.NewFeed()
 	// Add colliding agency to force prefixing
-	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Different Transit",
 		URL:      "http://different.example.com",
 		Timezone: "America/Denver",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewAgencyMergeStrategy()
@@ -257,20 +257,20 @@ func TestAgencyMergeWithPrefix(t *testing.T) {
 func TestAgencyMergeDetectionNone(t *testing.T) {
 	// Given: both feeds have agency with same ID but DetectionNone is used
 	source := gtfs.NewFeed()
-	source.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	source.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Different Transit",
 		URL:      "http://different.example.com",
 		Timezone: "America/Denver",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Agencies[gtfs.AgencyID("agency1")] = &gtfs.Agency{
+	target.AddAgency(&gtfs.Agency{
 		ID:       "agency1",
 		Name:     "Transit Authority",
 		URL:      "http://transit.example.com",
 		Timezone: "America/New_York",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewAgencyMergeStrategy()

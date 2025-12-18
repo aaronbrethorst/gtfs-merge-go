@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"sort"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 )
@@ -40,7 +41,16 @@ func (s *StopMergeStrategy) SetConcurrentWorkers(n int) {
 
 // Merge performs the merge operation for stops
 func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
-	for _, stop := range ctx.Source.Stops {
+	// Sort source stop IDs to match Java output order
+	// Java processes each feed's stops in sorted order within that feed
+	sortedStopIDs := make([]gtfs.StopID, len(ctx.Source.StopOrder))
+	copy(sortedStopIDs, ctx.Source.StopOrder)
+	sort.Slice(sortedStopIDs, func(i, j int) bool {
+		return sortedStopIDs[i] < sortedStopIDs[j]
+	})
+
+	for _, stopID := range sortedStopIDs {
+		stop := ctx.Source.Stops[stopID]
 		// Check for identity duplicates (same ID in target)
 		if s.DuplicateDetection == DetectionIdentity {
 			if _, found := ctx.Target.Stops[stop.ID]; found {
@@ -114,6 +124,7 @@ func (s *StopMergeStrategy) Merge(ctx *MergeContext) error {
 			PlatformCode:       stop.PlatformCode,
 		}
 		ctx.Target.Stops[newID] = newStop
+		ctx.Target.StopOrder = append(ctx.Target.StopOrder, newID)
 		ctx.JustAddedStops[newID] = struct{}{} // Track as just added for fuzzy matching
 	}
 

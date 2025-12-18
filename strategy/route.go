@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 )
@@ -39,7 +40,16 @@ func (s *RouteMergeStrategy) SetConcurrentWorkers(n int) {
 
 // Merge performs the merge operation for routes
 func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
-	for _, route := range ctx.Source.Routes {
+	// Sort source route IDs to match Java output order
+	// Java processes each feed's routes in sorted order within that feed
+	sortedRouteIDs := make([]gtfs.RouteID, len(ctx.Source.RouteOrder))
+	copy(sortedRouteIDs, ctx.Source.RouteOrder)
+	sort.Slice(sortedRouteIDs, func(i, j int) bool {
+		return sortedRouteIDs[i] < sortedRouteIDs[j]
+	})
+
+	for _, routeID := range sortedRouteIDs {
+		route := ctx.Source.Routes[routeID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if existing, found := ctx.Target.Routes[route.ID]; found {
@@ -108,6 +118,7 @@ func (s *RouteMergeStrategy) Merge(ctx *MergeContext) error {
 			ContinuousDropOff: route.ContinuousDropOff,
 		}
 		ctx.Target.Routes[newID] = newRoute
+		ctx.Target.RouteOrder = append(ctx.Target.RouteOrder, newID)
 		ctx.JustAddedRoutes[newID] = struct{}{} // Track as just added for fuzzy matching
 	}
 

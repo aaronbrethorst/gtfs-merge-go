@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
 )
@@ -21,7 +22,16 @@ func NewAgencyMergeStrategy() *AgencyMergeStrategy {
 
 // Merge performs the merge operation for agencies
 func (s *AgencyMergeStrategy) Merge(ctx *MergeContext) error {
-	for _, agency := range ctx.Source.Agencies {
+	// Sort source agency IDs to match Java output order
+	// Java processes each feed's agencies in sorted order within that feed
+	sortedAgencyIDs := make([]gtfs.AgencyID, len(ctx.Source.AgencyOrder))
+	copy(sortedAgencyIDs, ctx.Source.AgencyOrder)
+	sort.Slice(sortedAgencyIDs, func(i, j int) bool {
+		return sortedAgencyIDs[i] < sortedAgencyIDs[j]
+	})
+
+	for _, agencyID := range sortedAgencyIDs {
+		agency := ctx.Source.Agencies[agencyID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if existing, found := ctx.Target.Agencies[agency.ID]; found {
@@ -60,6 +70,7 @@ func (s *AgencyMergeStrategy) Merge(ctx *MergeContext) error {
 			Email:    agency.Email,
 		}
 		ctx.Target.Agencies[newID] = newAgency
+		ctx.Target.AgencyOrder = append(ctx.Target.AgencyOrder, newID)
 	}
 
 	return nil

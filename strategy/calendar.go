@@ -3,6 +3,7 @@ package strategy
 import (
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/aaronbrethorst/gtfs-merge-go/gtfs"
@@ -25,8 +26,16 @@ func NewCalendarMergeStrategy() *CalendarMergeStrategy {
 
 // Merge performs the merge operation for calendars
 func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
-	// First, merge calendar.txt entries
-	for _, cal := range ctx.Source.Calendars {
+	// Sort source calendar IDs to match Java output order
+	// Java processes each feed's calendars in sorted order within that feed
+	sortedServiceIDs := make([]gtfs.ServiceID, len(ctx.Source.CalendarOrder))
+	copy(sortedServiceIDs, ctx.Source.CalendarOrder)
+	sort.Slice(sortedServiceIDs, func(i, j int) bool {
+		return sortedServiceIDs[i] < sortedServiceIDs[j]
+	})
+
+	for _, serviceID := range sortedServiceIDs {
+		cal := ctx.Source.Calendars[serviceID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if existing, found := ctx.Target.Calendars[cal.ServiceID]; found {
@@ -85,6 +94,7 @@ func (s *CalendarMergeStrategy) Merge(ctx *MergeContext) error {
 			EndDate:   cal.EndDate,
 		}
 		ctx.Target.Calendars[newID] = newCal
+		ctx.Target.CalendarOrder = append(ctx.Target.CalendarOrder, newID)
 	}
 
 	return nil
@@ -186,7 +196,16 @@ func NewCalendarDateMergeStrategy() *CalendarDateMergeStrategy {
 
 // Merge performs the merge operation for calendar dates
 func (s *CalendarDateMergeStrategy) Merge(ctx *MergeContext) error {
-	for serviceID, dates := range ctx.Source.CalendarDates {
+	// Sort source calendar date IDs to match Java output order
+	// Java processes each feed's calendar dates in sorted order within that feed
+	sortedServiceIDs := make([]gtfs.ServiceID, len(ctx.Source.CalendarDateOrder))
+	copy(sortedServiceIDs, ctx.Source.CalendarDateOrder)
+	sort.Slice(sortedServiceIDs, func(i, j int) bool {
+		return sortedServiceIDs[i] < sortedServiceIDs[j]
+	})
+
+	for _, serviceID := range sortedServiceIDs {
+		dates := ctx.Source.CalendarDates[serviceID]
 		newServiceID := ctx.ServiceIDMapping[serviceID]
 		if newServiceID == "" {
 			// Service may only be defined in calendar_dates, not calendar
@@ -197,6 +216,9 @@ func (s *CalendarDateMergeStrategy) Merge(ctx *MergeContext) error {
 			}
 			ctx.ServiceIDMapping[serviceID] = newServiceID
 		}
+
+		// Track order for first occurrence of this service_id
+		isFirstForServiceID := len(ctx.Target.CalendarDates[newServiceID]) == 0
 
 		for _, date := range dates {
 			// Check for exact duplicate calendar date (same service_id, date, exception_type)
@@ -226,6 +248,12 @@ func (s *CalendarDateMergeStrategy) Merge(ctx *MergeContext) error {
 				ExceptionType: date.ExceptionType,
 			}
 			ctx.Target.CalendarDates[newServiceID] = append(ctx.Target.CalendarDates[newServiceID], newDate)
+
+			// Track order only when first adding to this service_id
+			if isFirstForServiceID {
+				ctx.Target.CalendarDateOrder = append(ctx.Target.CalendarDateOrder, newServiceID)
+				isFirstForServiceID = false
+			}
 		}
 	}
 

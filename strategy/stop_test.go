@@ -9,20 +9,20 @@ import (
 func TestStopMergeNoDuplicates(t *testing.T) {
 	// Given: two feeds with non-overlapping stop IDs
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop2")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop2",
 		Name: "Uptown Station",
 		Lat:  40.7831,
 		Lon:  -73.9712,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -51,20 +51,20 @@ func TestStopMergeNoDuplicates(t *testing.T) {
 func TestStopMergeIdentityDuplicate(t *testing.T) {
 	// Given: both feeds have stop with ID "stop1"
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Different Stop",
 		Lat:  39.7392,
 		Lon:  -104.9903,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -101,20 +101,20 @@ func TestStopMergeIdentityDuplicate(t *testing.T) {
 func TestStopMergeUpdatesStopTimeRefs(t *testing.T) {
 	// Given: source feed has a stop
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Source Stop",
 		Lat:  39.7392,
 		Lon:  -104.9903,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Target Stop",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -137,20 +137,20 @@ func TestStopMergeUpdatesTransferRefs(t *testing.T) {
 	// This test verifies the ID mapping is correct for transfer updates
 	// Actual transfer updates happen in the TransferMergeStrategy
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Transfer Stop Source",
 		Lat:  39.7392,
 		Lon:  -104.9903,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Transfer Stop Target",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -171,39 +171,39 @@ func TestStopMergeUpdatesParentStation(t *testing.T) {
 	// Given: source has a child stop referencing a parent
 	// and target has colliding IDs to force prefixing
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("parent1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:           "parent1",
 		Name:         "Parent Station",
 		LocationType: 1,
 		Lat:          40.7128,
 		Lon:          -74.0060,
-	}
-	source.Stops[gtfs.StopID("child1")] = &gtfs.Stop{
+	})
+	source.AddStop(&gtfs.Stop{
 		ID:            "child1",
 		Name:          "Child Platform",
 		LocationType:  0,
 		ParentStation: "parent1",
 		Lat:           40.7128,
 		Lon:           -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
 	// Add colliding stops to force prefixing
-	target.Stops[gtfs.StopID("parent1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:           "parent1",
 		Name:         "Different Parent",
 		LocationType: 1,
 		Lat:          41.0,
 		Lon:          -75.0,
-	}
-	target.Stops[gtfs.StopID("child1")] = &gtfs.Stop{
+	})
+	target.AddStop(&gtfs.Stop{
 		ID:            "child1",
 		Name:          "Different Child",
 		LocationType:  0,
 		ParentStation: "parent1",
 		Lat:           41.0,
 		Lon:           -75.0,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewStopMergeStrategy()
@@ -229,21 +229,21 @@ func TestStopMergeUpdatesParentStation(t *testing.T) {
 func TestStopMergeWithPrefix(t *testing.T) {
 	// Given: source feed has a stop that collides with target
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
 	// Add colliding stop to force prefixing
-	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Different Station",
 		Lat:  41.0,
 		Lon:  -75.0,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewStopMergeStrategy()
@@ -272,20 +272,20 @@ func TestStopMergeWithPrefix(t *testing.T) {
 func TestStopMergeErrorOnDuplicate(t *testing.T) {
 	// Given: both feeds have stop with same ID and error logging enabled
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Different Stop",
 		Lat:  39.7392,
 		Lon:  -104.9903,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -306,20 +306,20 @@ func TestStopMergeErrorOnDuplicate(t *testing.T) {
 func TestStopMergeFuzzyByName(t *testing.T) {
 	// Given: stops with different IDs but same name and nearby location
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop_a",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop_b",
 		Name: "Downtown Station",
 		Lat:  40.7128, // Same location (0m apart)
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -347,21 +347,21 @@ func TestStopMergeFuzzyByName(t *testing.T) {
 func TestStopMergeFuzzyByDistance(t *testing.T) {
 	// Given: stops with different IDs, same name, but within threshold distance
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop_a",
 		Name: "Central Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop_b",
 		Name: "Central Station",
 		// ~30m away (well within 50m threshold for score 1.0)
 		Lat: 40.7130,
 		Lon: -74.0062,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -387,20 +387,20 @@ func TestStopMergeFuzzyByDistance(t *testing.T) {
 func TestStopMergeFuzzyNoMatch_DifferentName(t *testing.T) {
 	// Given: stops with different IDs and different names, even if same location
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop_a",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop_b",
 		Name: "Uptown Station", // Different name
 		Lat:  40.7128,          // Same location
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -423,20 +423,20 @@ func TestStopMergeFuzzyNoMatch_DifferentName(t *testing.T) {
 func TestStopMergeFuzzyNoMatch_TooFarApart(t *testing.T) {
 	// Given: stops with same name but too far apart (>500m)
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop_a",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop_b",
 		Name: "Downtown Station", // Same name
 		Lat:  40.7228,            // ~1.1km away (beyond 500m threshold)
 		Lon:  -74.0160,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -459,20 +459,20 @@ func TestStopMergeFuzzyNoMatch_TooFarApart(t *testing.T) {
 func TestStopMergeFuzzyWithPrefix(t *testing.T) {
 	// Given: stops with different names, no match expected, collision should add prefix
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Source Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Stops[gtfs.StopID("stop1")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop1",
 		Name: "Target Station", // Different name
 		Lat:  41.0,             // Different location
 		Lon:  -75.0,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewStopMergeStrategy()
@@ -504,31 +504,31 @@ func TestStopMergeFuzzyWithPrefix(t *testing.T) {
 func TestStopMergeFuzzyConcurrent(t *testing.T) {
 	// Given: stops with same name and nearby location, concurrent processing enabled
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop_a")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop_a",
 		Name: "Downtown Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	target := gtfs.NewFeed()
 	// Add many stops to trigger concurrent processing
 	for i := 0; i < 150; i++ {
 		id := gtfs.StopID(string(rune('A'+i/10)) + string(rune('0'+i%10)))
-		target.Stops[id] = &gtfs.Stop{
+		target.AddStop(&gtfs.Stop{
 			ID:   id,
 			Name: "Other Station " + string(rune('A'+i)),
 			Lat:  41.0 + float64(i)*0.01,
 			Lon:  -75.0 + float64(i)*0.01,
-		}
+		})
 	}
 	// Add the matching stop
-	target.Stops[gtfs.StopID("stop_b")] = &gtfs.Stop{
+	target.AddStop(&gtfs.Stop{
 		ID:   "stop_b",
 		Name: "Downtown Station",
 		Lat:  40.7128, // Same location (0m apart)
 		Lon:  -74.0060,
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewStopMergeStrategy()
@@ -553,32 +553,32 @@ func TestStopMergeFuzzyConcurrent(t *testing.T) {
 func TestStopMergeFuzzyConcurrentCorrectness(t *testing.T) {
 	// Test that concurrent and sequential produce the same results
 	source := gtfs.NewFeed()
-	source.Stops[gtfs.StopID("stop_src")] = &gtfs.Stop{
+	source.AddStop(&gtfs.Stop{
 		ID:   "stop_src",
 		Name: "Test Station",
 		Lat:  40.7128,
 		Lon:  -74.0060,
-	}
+	})
 
 	// Create target with many stops and one matching
 	createTarget := func() *gtfs.Feed {
 		target := gtfs.NewFeed()
 		for i := 0; i < 200; i++ {
 			id := gtfs.StopID(string(rune('A'+i/26)) + string(rune('0'+i%26)))
-			target.Stops[id] = &gtfs.Stop{
+			target.AddStop(&gtfs.Stop{
 				ID:   id,
 				Name: "Different Station " + string(id),
 				Lat:  42.0 + float64(i)*0.001,
 				Lon:  -76.0 + float64(i)*0.001,
-			}
+			})
 		}
 		// Add matching stop
-		target.Stops[gtfs.StopID("target_match")] = &gtfs.Stop{
+		target.AddStop(&gtfs.Stop{
 			ID:   "target_match",
 			Name: "Test Station",
 			Lat:  40.7128,
 			Lon:  -74.0060,
-		}
+		})
 		return target
 	}
 

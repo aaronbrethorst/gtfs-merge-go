@@ -21,7 +21,9 @@ func NewAreaMergeStrategy() *AreaMergeStrategy {
 
 // Merge performs the merge operation for areas
 func (s *AreaMergeStrategy) Merge(ctx *MergeContext) error {
-	for _, area := range ctx.Source.Areas {
+	// Iterate in insertion order to match Java output
+	for _, areaID := range ctx.Source.AreaOrder {
+		area := ctx.Source.Areas[areaID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if existing, found := ctx.Target.Areas[area.ID]; found {
@@ -54,6 +56,7 @@ func (s *AreaMergeStrategy) Merge(ctx *MergeContext) error {
 			Name: area.Name,
 		}
 		ctx.Target.Areas[newID] = newArea
+		ctx.Target.AreaOrder = append(ctx.Target.AreaOrder, newID)
 	}
 
 	return nil

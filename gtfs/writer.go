@@ -244,17 +244,17 @@ func writeAgencies(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort agencies by ID for deterministic output
+	// Sort by agency ID for deterministic output (matches Java behavior of global sorting)
 	agencyIDs := make([]AgencyID, 0, len(feed.Agencies))
 	for id := range feed.Agencies {
 		agencyIDs = append(agencyIDs, id)
 	}
-	sort.Slice(agencyIDs, func(i, j int) bool {
-		return string(agencyIDs[i]) < string(agencyIDs[j])
-	})
-
+	sort.Slice(agencyIDs, func(i, j int) bool { return agencyIDs[i] < agencyIDs[j] })
 	for _, id := range agencyIDs {
 		a := feed.Agencies[id]
+		if a == nil {
+			continue // Skip if agency was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(a)
@@ -366,17 +366,17 @@ func writeStops(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort stops by ID for deterministic output
+	// Sort by stop ID for deterministic output (matches Java behavior of global sorting)
 	stopIDs := make([]StopID, 0, len(feed.Stops))
 	for id := range feed.Stops {
 		stopIDs = append(stopIDs, id)
 	}
-	sort.Slice(stopIDs, func(i, j int) bool {
-		return string(stopIDs[i]) < string(stopIDs[j])
-	})
-
+	sort.Slice(stopIDs, func(i, j int) bool { return stopIDs[i] < stopIDs[j] })
 	for _, id := range stopIDs {
 		s := feed.Stops[id]
+		if s == nil {
+			continue // Skip if stop was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(s)
@@ -487,17 +487,17 @@ func writeRoutes(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort routes by ID for deterministic output
+	// Sort by route ID for deterministic output (matches Java behavior of global sorting)
 	routeIDs := make([]RouteID, 0, len(feed.Routes))
 	for id := range feed.Routes {
 		routeIDs = append(routeIDs, id)
 	}
-	sort.Slice(routeIDs, func(i, j int) bool {
-		return string(routeIDs[i]) < string(routeIDs[j])
-	})
-
+	sort.Slice(routeIDs, func(i, j int) bool { return routeIDs[i] < routeIDs[j] })
 	for _, id := range routeIDs {
 		r := feed.Routes[id]
+		if r == nil {
+			continue // Skip if route was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(r)
@@ -596,17 +596,17 @@ func writeTrips(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort trips by ID for deterministic output
+	// Sort by trip ID for deterministic output (matches Java behavior of global sorting)
 	tripIDs := make([]TripID, 0, len(feed.Trips))
 	for id := range feed.Trips {
 		tripIDs = append(tripIDs, id)
 	}
-	sort.Slice(tripIDs, func(i, j int) bool {
-		return string(tripIDs[i]) < string(tripIDs[j])
-	})
-
+	sort.Slice(tripIDs, func(i, j int) bool { return tripIDs[i] < tripIDs[j] })
 	for _, id := range tripIDs {
 		t := feed.Trips[id]
+		if t == nil {
+			continue // Skip if trip was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(t)
@@ -766,17 +766,17 @@ func writeCalendars(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort calendars by service_id for deterministic output
-	serviceIDs := make([]ServiceID, 0, len(feed.Calendars))
+	// Sort by service ID for deterministic output (matches Java behavior of global sorting)
+	calendarIDs := make([]ServiceID, 0, len(feed.Calendars))
 	for id := range feed.Calendars {
-		serviceIDs = append(serviceIDs, id)
+		calendarIDs = append(calendarIDs, id)
 	}
-	sort.Slice(serviceIDs, func(i, j int) bool {
-		return string(serviceIDs[i]) < string(serviceIDs[j])
-	})
-
-	for _, id := range serviceIDs {
+	sort.Slice(calendarIDs, func(i, j int) bool { return calendarIDs[i] < calendarIDs[j] })
+	for _, id := range calendarIDs {
 		c := feed.Calendars[id]
+		if c == nil {
+			continue // Skip if calendar was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(c)
@@ -826,24 +826,19 @@ func writeCalendarDates(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort by service_id, then by date for deterministic output
-	serviceIDs := make([]ServiceID, 0, len(feed.CalendarDates))
+	// Sort by service ID for deterministic output (matches Java behavior of global sorting)
+	calendarDateIDs := make([]ServiceID, 0, len(feed.CalendarDates))
 	for id := range feed.CalendarDates {
-		serviceIDs = append(serviceIDs, id)
+		calendarDateIDs = append(calendarDateIDs, id)
 	}
-	sort.Slice(serviceIDs, func(i, j int) bool {
-		return string(serviceIDs[i]) < string(serviceIDs[j])
-	})
-
-	for _, serviceID := range serviceIDs {
+	sort.Slice(calendarDateIDs, func(i, j int) bool { return calendarDateIDs[i] < calendarDateIDs[j] })
+	for _, serviceID := range calendarDateIDs {
 		dates := feed.CalendarDates[serviceID]
-		// Sort dates within each service_id
-		sortedDates := make([]*CalendarDate, len(dates))
-		copy(sortedDates, dates)
-		sort.Slice(sortedDates, func(i, j int) bool {
-			return sortedDates[i].Date < sortedDates[j].Date
-		})
-		for _, cd := range sortedDates {
+		if len(dates) == 0 {
+			continue // Skip if service was removed
+		}
+		// Keep dates in insertion order (not sorted)
+		for _, cd := range dates {
 			record := make([]string, len(activeCols))
 			for i, col := range activeCols {
 				record[i] = col.getter(cd)
@@ -1156,17 +1151,17 @@ func writeFareAttributes(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort fare attributes by fare_id for deterministic output
+	// Sort by fare ID for deterministic output (matches Java behavior of global sorting)
 	fareIDs := make([]FareID, 0, len(feed.FareAttributes))
 	for id := range feed.FareAttributes {
 		fareIDs = append(fareIDs, id)
 	}
-	sort.Slice(fareIDs, func(i, j int) bool {
-		return string(fareIDs[i]) < string(fareIDs[j])
-	})
-
+	sort.Slice(fareIDs, func(i, j int) bool { return fareIDs[i] < fareIDs[j] })
 	for _, id := range fareIDs {
 		fa := feed.FareAttributes[id]
+		if fa == nil {
+			continue // Skip if fare was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(fa)
@@ -1291,24 +1286,17 @@ func writeFeedInfo(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Collect and sort feed_ids for consistent output
-	ids := make([]string, 0, len(feed.FeedInfos))
+	// Sort for deterministic output (matches Java behavior of global sorting)
+	feedInfoIDs := make([]string, 0, len(feed.FeedInfos))
 	for id := range feed.FeedInfos {
-		ids = append(ids, id)
+		feedInfoIDs = append(feedInfoIDs, id)
 	}
-	sort.Slice(ids, func(i, j int) bool {
-		// Sort numerically if possible, else lexicographically
-		ni, ei := strconv.Atoi(ids[i])
-		nj, ej := strconv.Atoi(ids[j])
-		if ei == nil && ej == nil {
-			return ni < nj
-		}
-		return ids[i] < ids[j]
-	})
-
-	// Write all FeedInfo entries
-	for _, id := range ids {
+	sort.Strings(feedInfoIDs)
+	for _, id := range feedInfoIDs {
 		fi := feed.FeedInfos[id]
+		if fi == nil {
+			continue // Skip if feed info was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(fi)
@@ -1357,17 +1345,17 @@ func writeAreas(zw *zip.Writer, feed *Feed) error {
 		return err
 	}
 
-	// Sort areas by area_id for deterministic output
+	// Sort by area ID for deterministic output (matches Java behavior of global sorting)
 	areaIDs := make([]AreaID, 0, len(feed.Areas))
 	for id := range feed.Areas {
 		areaIDs = append(areaIDs, id)
 	}
-	sort.Slice(areaIDs, func(i, j int) bool {
-		return string(areaIDs[i]) < string(areaIDs[j])
-	})
-
+	sort.Slice(areaIDs, func(i, j int) bool { return areaIDs[i] < areaIDs[j] })
 	for _, id := range areaIDs {
 		a := feed.Areas[id]
+		if a == nil {
+			continue // Skip if area was removed
+		}
 		record := make([]string, len(activeCols))
 		for i, col := range activeCols {
 			record[i] = col.getter(a)

@@ -21,7 +21,9 @@ func NewFareAttributeMergeStrategy() *FareAttributeMergeStrategy {
 
 // Merge performs the merge operation for fare attributes
 func (s *FareAttributeMergeStrategy) Merge(ctx *MergeContext) error {
-	for _, fare := range ctx.Source.FareAttributes {
+	// Iterate in insertion order to match Java output
+	for _, fareID := range ctx.Source.FareAttrOrder {
+		fare := ctx.Source.FareAttributes[fareID]
 		// Check for duplicates based on detection mode
 		if s.DuplicateDetection == DetectionIdentity {
 			if existing, found := ctx.Target.FareAttributes[fare.FareID]; found {
@@ -63,6 +65,7 @@ func (s *FareAttributeMergeStrategy) Merge(ctx *MergeContext) error {
 			SeniorPrice:      fare.SeniorPrice,
 		}
 		ctx.Target.FareAttributes[newID] = newFare
+		ctx.Target.FareAttrOrder = append(ctx.Target.FareAttrOrder, newID)
 	}
 
 	return nil

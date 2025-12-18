@@ -9,16 +9,16 @@ import (
 func TestAreaMergeNoDuplicates(t *testing.T) {
 	// Given: two feeds with non-overlapping area IDs
 	source := gtfs.NewFeed()
-	source.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
+	source.AddArea(&gtfs.Area{
 		ID:   "area1",
 		Name: "Downtown",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Areas[gtfs.AreaID("area2")] = &gtfs.Area{
+	target.AddArea(&gtfs.Area{
 		ID:   "area2",
 		Name: "Uptown",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAreaMergeStrategy()
@@ -40,16 +40,16 @@ func TestAreaMergeNoDuplicates(t *testing.T) {
 func TestAreaMergeIdentityDuplicate(t *testing.T) {
 	// Given: both feeds have area with ID "area1"
 	source := gtfs.NewFeed()
-	source.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
+	source.AddArea(&gtfs.Area{
 		ID:   "area1",
 		Name: "Different Area",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
+	target.AddArea(&gtfs.Area{
 		ID:   "area1",
 		Name: "Downtown",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewAreaMergeStrategy()
@@ -80,17 +80,17 @@ func TestAreaMergeIdentityDuplicate(t *testing.T) {
 func TestAreaMergeWithPrefix(t *testing.T) {
 	// Given: source feed has an area that collides with target
 	source := gtfs.NewFeed()
-	source.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
+	source.AddArea(&gtfs.Area{
 		ID:   "area1",
 		Name: "Downtown",
-	}
+	})
 
 	target := gtfs.NewFeed()
 	// Add colliding area to force prefixing
-	target.Areas[gtfs.AreaID("area1")] = &gtfs.Area{
+	target.AddArea(&gtfs.Area{
 		ID:   "area1",
 		Name: "Different Area",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewAreaMergeStrategy()

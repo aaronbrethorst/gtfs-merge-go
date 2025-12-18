@@ -9,7 +9,7 @@ import (
 func TestCalendarMergeNoDuplicates(t *testing.T) {
 	// Given: two feeds with non-overlapping service IDs
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		Tuesday:   true,
@@ -18,16 +18,16 @@ func TestCalendarMergeNoDuplicates(t *testing.T) {
 		Friday:    true,
 		StartDate: "20240101",
 		EndDate:   "20241231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("service2")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service2",
 		Saturday:  true,
 		Sunday:    true,
 		StartDate: "20240101",
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewCalendarMergeStrategy()
@@ -56,15 +56,15 @@ func TestCalendarMergeNoDuplicates(t *testing.T) {
 func TestCalendarMergeIdentityDuplicate(t *testing.T) {
 	// Given: both feeds have calendar with service_id "service1"
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		StartDate: "20240601",
 		EndDate:   "20241231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		Tuesday:   true,
@@ -73,7 +73,7 @@ func TestCalendarMergeIdentityDuplicate(t *testing.T) {
 		Friday:    true,
 		StartDate: "20240101",
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewCalendarMergeStrategy()
@@ -110,20 +110,20 @@ func TestCalendarMergeIdentityDuplicate(t *testing.T) {
 func TestCalendarMergeUpdatesTripRefs(t *testing.T) {
 	// Given: source feed has a calendar
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		StartDate: "20240601",
 		EndDate:   "20241231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		StartDate: "20240101",
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewCalendarMergeStrategy()
@@ -145,9 +145,7 @@ func TestCalendarMergeUpdatesTripRefs(t *testing.T) {
 func TestCalendarDatesMerged(t *testing.T) {
 	// Given: source has calendar dates
 	source := gtfs.NewFeed()
-	source.CalendarDates[gtfs.ServiceID("service1")] = []*gtfs.CalendarDate{
-		{ServiceID: "service1", Date: "20240704", ExceptionType: 1},
-	}
+	source.AddCalendarDate(&gtfs.CalendarDate{ServiceID: "service1", Date: "20240704", ExceptionType: 1})
 
 	target := gtfs.NewFeed()
 
@@ -178,15 +176,11 @@ func TestCalendarDatesWithNewServiceID(t *testing.T) {
 	// Given: source has calendar dates for a service not in calendar.txt
 	// and target has a collision for that service ID
 	source := gtfs.NewFeed()
-	source.CalendarDates[gtfs.ServiceID("service_new")] = []*gtfs.CalendarDate{
-		{ServiceID: "service_new", Date: "20240704", ExceptionType: 1},
-	}
+	source.AddCalendarDate(&gtfs.CalendarDate{ServiceID: "service_new", Date: "20240704", ExceptionType: 1})
 
 	target := gtfs.NewFeed()
 	// Add colliding calendar dates to force prefixing
-	target.CalendarDates[gtfs.ServiceID("service_new")] = []*gtfs.CalendarDate{
-		{ServiceID: "service_new", Date: "20240101", ExceptionType: 2},
-	}
+	target.AddCalendarDate(&gtfs.CalendarDate{ServiceID: "service_new", Date: "20240101", ExceptionType: 2})
 
 	ctx := NewMergeContext(source, target, "a_")
 	// No mapping set for service_new (it's only in calendar_dates)
@@ -215,20 +209,20 @@ func TestCalendarDatesWithNewServiceID(t *testing.T) {
 func TestCalendarMergeErrorOnDuplicate(t *testing.T) {
 	// Given: both feeds have calendar with same service_id and error logging enabled
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		StartDate: "20240601",
 		EndDate:   "20241231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("service1")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "service1",
 		Monday:    true,
 		StartDate: "20240101",
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewCalendarMergeStrategy()
@@ -247,14 +241,10 @@ func TestCalendarMergeErrorOnDuplicate(t *testing.T) {
 func TestCalendarDatesDuplicateDetection(t *testing.T) {
 	// Given: both feeds have the same calendar date
 	source := gtfs.NewFeed()
-	source.CalendarDates[gtfs.ServiceID("service1")] = []*gtfs.CalendarDate{
-		{ServiceID: "service1", Date: "20240704", ExceptionType: 1},
-	}
+	source.AddCalendarDate(&gtfs.CalendarDate{ServiceID: "service1", Date: "20240704", ExceptionType: 1})
 
 	target := gtfs.NewFeed()
-	target.CalendarDates[gtfs.ServiceID("service1")] = []*gtfs.CalendarDate{
-		{ServiceID: "service1", Date: "20240704", ExceptionType: 1},
-	}
+	target.AddCalendarDate(&gtfs.CalendarDate{ServiceID: "service1", Date: "20240704", ExceptionType: 1})
 
 	ctx := NewMergeContext(source, target, "")
 	ctx.ServiceIDMapping[gtfs.ServiceID("service1")] = gtfs.ServiceID("service1")
@@ -280,7 +270,7 @@ func TestCalendarDatesDuplicateDetection(t *testing.T) {
 func TestCalendarMergeFuzzyByDateOverlap(t *testing.T) {
 	// Given: calendars with different IDs but overlapping date ranges
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("svc_a")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc_a",
 		Monday:    true,
 		Tuesday:   true,
@@ -289,10 +279,10 @@ func TestCalendarMergeFuzzyByDateOverlap(t *testing.T) {
 		Friday:    true,
 		StartDate: "20240101",
 		EndDate:   "20241231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("svc_b")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc_b",
 		Monday:    true,
 		Tuesday:   true,
@@ -301,7 +291,7 @@ func TestCalendarMergeFuzzyByDateOverlap(t *testing.T) {
 		Friday:    true,
 		StartDate: "20240101", // Same date range
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewCalendarMergeStrategy()
@@ -329,20 +319,20 @@ func TestCalendarMergeFuzzyByDateOverlap(t *testing.T) {
 func TestCalendarMergeFuzzyPartialOverlap(t *testing.T) {
 	// Given: calendars with different IDs and partially overlapping date ranges
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("svc_a")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc_a",
 		Monday:    true,
 		StartDate: "20240601", // Starts mid-year
 		EndDate:   "20241231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("svc_b")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc_b",
 		Monday:    true,
 		StartDate: "20240101",
 		EndDate:   "20240930", // Ends before source
-	}
+	})
 	// Overlap is July-Sept (4 months), which is significant
 
 	ctx := NewMergeContext(source, target, "")
@@ -370,20 +360,20 @@ func TestCalendarMergeFuzzyPartialOverlap(t *testing.T) {
 func TestCalendarMergeFuzzyNoOverlap(t *testing.T) {
 	// Given: calendars with non-overlapping date ranges
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("svc_a")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc_a",
 		Monday:    true,
 		StartDate: "20250101", // Next year
 		EndDate:   "20251231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("svc_b")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc_b",
 		Monday:    true,
 		StartDate: "20240101", // This year
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "")
 	strategy := NewCalendarMergeStrategy()
@@ -406,20 +396,20 @@ func TestCalendarMergeFuzzyNoOverlap(t *testing.T) {
 func TestCalendarMergeFuzzyWithPrefix(t *testing.T) {
 	// Given: calendars with no fuzzy match and ID collision
 	source := gtfs.NewFeed()
-	source.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{
+	source.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc1",
 		Monday:    true,
 		StartDate: "20250101",
 		EndDate:   "20251231",
-	}
+	})
 
 	target := gtfs.NewFeed()
-	target.Calendars[gtfs.ServiceID("svc1")] = &gtfs.Calendar{
+	target.AddCalendar(&gtfs.Calendar{
 		ServiceID: "svc1",
 		Monday:    true,
 		StartDate: "20240101", // Different year - no overlap
 		EndDate:   "20241231",
-	}
+	})
 
 	ctx := NewMergeContext(source, target, "a_")
 	strategy := NewCalendarMergeStrategy()

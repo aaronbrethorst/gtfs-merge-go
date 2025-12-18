@@ -73,8 +73,24 @@ func (ctx *MergeContext) SetSharedShapeCounter(counter *int) {
 	ctx.sharedShapeCounter = counter
 }
 
-// NewMergeContext creates a new merge context
+// NewMergeContext creates a new merge context.
+// If the source feed has empty order slices but non-empty maps, SyncOrderSlices
+// is called to populate them. This supports test code that uses direct map assignments.
 func NewMergeContext(source, target *gtfs.Feed, prefix string) *MergeContext {
+	// Sync order slices if they're empty but maps have data.
+	// This supports test code that populates maps directly.
+	if len(source.AgencyOrder) == 0 && len(source.Agencies) > 0 ||
+		len(source.StopOrder) == 0 && len(source.Stops) > 0 ||
+		len(source.RouteOrder) == 0 && len(source.Routes) > 0 ||
+		len(source.TripOrder) == 0 && len(source.Trips) > 0 ||
+		len(source.CalendarOrder) == 0 && len(source.Calendars) > 0 ||
+		len(source.CalendarDateOrder) == 0 && len(source.CalendarDates) > 0 ||
+		len(source.FareAttrOrder) == 0 && len(source.FareAttributes) > 0 ||
+		len(source.FeedInfoOrder) == 0 && len(source.FeedInfos) > 0 ||
+		len(source.AreaOrder) == 0 && len(source.Areas) > 0 {
+		source.SyncOrderSlices()
+	}
+
 	return &MergeContext{
 		Source:            source,
 		Target:            target,
